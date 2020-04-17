@@ -13,13 +13,16 @@ import requests_cache
 from .data_corrections import data_corrections
 from .urls import urls
 
+# using simple time-based caching to prevent abuse of data providers
 requests_cache.install_cache(path.split(path.split(__file__)[0])[1], expire_after=12 * 3600)
 
 
+# retrieve data and return Pandas DataFrame
 def data_frame_from_url(url_name: str) -> pd.DataFrame:
     return pd.read_csv(StringIO(requests.get(urls[url_name]).content.decode()))
 
 
+# Population Data
 population = data_frame_from_url('population').set_index('Country').iloc[:, [-1]].dropna(0)
 population.columns = ['Population']
 population.Population = population.Population.astype(int)
@@ -31,6 +34,7 @@ for country, name_change, missing_data in data_corrections:
 population = population / 10 ** 6
 population.loc['Rest'] = population.loc['World'] - population.loc['China']
 
+# Covid-19 Data
 data_frames = {}
 for name, data_frame in ((k, data_frame_from_url(k)) for k in urls.keys() if k != 'population'):
     data_frame = data_frame.drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
@@ -46,9 +50,13 @@ for name, data_frame in ((k, data_frame_from_url(k)) for k in urls.keys() if k !
     data_frames[name] = data_frame
     data_frames[name + ' per million'] = data_frame.div(population.Population, axis=1).dropna(axis=1)
     data_frames[name + ' per week per million'] = data_frames[name + ' per million'].diff(7).dropna().astype(int)
+    data_frames[name + ' per million'] = data_frames[name + ' per million'].astype(int)
 data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
 
+# Countries to show
 countries = list(argv[1:])
+
+# Plot(s)
 cf.go_offline()
 for chart in data_frames.keys():
     df = data_frames[chart][countries] if countries else data_frames[chart]
