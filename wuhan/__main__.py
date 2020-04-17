@@ -5,12 +5,10 @@ from io import StringIO
 from os import path
 from sys import argv
 
+import cufflinks as cf
 import pandas as pd
 import requests
 import requests_cache
-from matplotlib import pyplot as plt
-from matplotlib import rc
-from matplotlib import style
 
 URLS = {
     'population': 'https://datahub.io/JohnSnowLabs/population-figures-by-country/r/population-figures-by-country-csv.csv',
@@ -71,29 +69,12 @@ for name, data_frame in ((k, data_frame_from_url(k)) for k in URLS.keys() if k !
     data_frame['Rest'] = data_frame['World'] - data_frame['China']
     data_frames[name] = data_frame
     data_frames[name + ' per million'] = data_frame.div(population.Population, axis=1).dropna(axis=1)
-    data_frames['new ' + name + ' per million per week'] = data_frames[name + ' per million'].diff(7).dropna().astype(int)
+    data_frames[name + ' per week per million'] = data_frames[name + ' per million'].diff(7).dropna().astype(int)
 data_frames['mortality rate'] = (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
 
 countries = list(argv[1:])
-style.use('seaborn-white')
-rc('font', size=9)
-rc('axes', titlesize=9)
-rc('axes', labelsize=9)
-fig, axes = plt.subplots(nrows=2, ncols=3, sharex='all')
-axes_selection = (
-    ('confirmed cases', axes[0, 0], True,),
-    ('confirmed cases per million', axes[0, 1], True,),
-    ('new confirmed cases per million per week', axes[0, 2], True,),
-    ('deaths', axes[1, 0], True,),
-    ('deaths per million', axes[1, 1], True,),
-    ('mortality rate', axes[1, 2], True,),
-)
-for label, ax, show_legend in axes_selection:
-    df = data_frames[label][countries] if countries else data_frames[label]
-    show_legend = show_legend and countries
-    df.plot(ax=ax, title=label, grid=True, legend=show_legend)
-    ax.axes.get_xaxis().get_label().set_visible(False)
 
-plt.get_current_fig_manager().set_window_title('Wuhan Corona Virus Pandemic')
-plt.show()
-plt.close(fig=fig)
+cf.go_offline()
+for label in ('confirmed cases', 'deaths',):
+    df = data_frames[label][countries] if countries else data_frames[label]
+    df.iplot(asFigure=True, title=label).show()
