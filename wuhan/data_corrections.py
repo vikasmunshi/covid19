@@ -1,0 +1,22 @@
+data_corrections = [
+    ['Bahamas, The', 'Bahamas', None],
+    ['Brunei Darussalam', 'Brunei', None],
+    ['Congo, Dem. Rep.', 'Congo (Kinshasa)', None],
+    ['Congo, Rep.', 'Congo (Brazzaville)', None],
+    ['Czech Republic', 'Czechia', None],
+    ['Egypt, Arab Rep.', 'Egypt', None],
+    ['Gambia, The', 'Gambia', None],
+    ['Iran, Islamic Rep.', 'Iran', None],
+    ['Korea, Rep.', 'Korea, South', None],
+    ['Kyrgyz Republic', 'Kyrgyzstan', None],
+    ['Lao PDR', 'Laos', None],
+    ['Macedonia, FYR', 'North Macedonia', None],
+    ['Myanmar', 'Burma', None],
+    ['Russian Federation', 'Russia', None],
+    ['Slovak Republic', 'Slovakia', None],
+    ['Syrian Arab Republic', 'Syria', None],
+    ['Taiwan*', None, 23780452],
+    ['United States', 'US', None],
+    ['Venezuela, RB', 'Venezuela', None],
+    ['Yemen, Rep.', 'Yemen', None]
+]

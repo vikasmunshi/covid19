@@ -10,44 +10,20 @@ import pandas as pd
 import requests
 import requests_cache
 
-URLS = {
-    'population': 'https://datahub.io/JohnSnowLabs/population-figures-by-country/r/population-figures-by-country-csv.csv',
-    'confirmed cases': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_confirmed_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_confirmed_global.csv',
-    'deaths': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_deaths_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_deaths_global.csv',
-    'recovered': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_recovered_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_recovered_global.csv',
-}
+from .data_corrections import data_corrections
+from .urls import urls
+
 requests_cache.install_cache(path.split(path.split(__file__)[0])[1], expire_after=12 * 3600)
 
 
 def data_frame_from_url(url_name: str) -> pd.DataFrame:
-    return pd.read_csv(StringIO(requests.get(URLS[url_name]).content.decode()))
+    return pd.read_csv(StringIO(requests.get(urls[url_name]).content.decode()))
 
 
 population = data_frame_from_url('population').set_index('Country').iloc[:, [-1]].dropna(0)
 population.columns = ['Population']
 population.Population = population.Population.astype(int)
-for country, name_change, missing_data in [
-    ('Bahamas, The', 'Bahamas', None),
-    ('Brunei Darussalam', 'Brunei', None),
-    ('Congo, Dem. Rep.', 'Congo (Kinshasa)', None),
-    ('Congo, Rep.', 'Congo (Brazzaville)', None),
-    ('Czech Republic', 'Czechia', None),
-    ('Egypt, Arab Rep.', 'Egypt', None),
-    ('Gambia, The', 'Gambia', None),
-    ('Iran, Islamic Rep.', 'Iran', None),
-    ('Korea, Rep.', 'Korea, South', None),
-    ('Kyrgyz Republic', 'Kyrgyzstan', None),
-    ('Lao PDR', 'Laos', None),
-    ('Macedonia, FYR', 'North Macedonia', None),
-    ('Myanmar', 'Burma', None),
-    ('Russian Federation', 'Russia', None),
-    ('Slovak Republic', 'Slovakia', None),
-    ('Syrian Arab Republic', 'Syria', None),
-    ('Taiwan*', None, 23780452),
-    ('United States', 'US', None),
-    ('Venezuela, RB', 'Venezuela', None),
-    ('Yemen, Rep.', 'Yemen', None)
-]:
+for country, name_change, missing_data in data_corrections:
     if name_change:
         population.loc[name_change] = population.loc[country]
     if missing_data:
@@ -56,7 +32,7 @@ population = population / 10 ** 6
 population.loc['Rest'] = population.loc['World'] - population.loc['China']
 
 data_frames = {}
-for name, data_frame in ((k, data_frame_from_url(k)) for k in URLS.keys() if k != 'population'):
+for name, data_frame in ((k, data_frame_from_url(k)) for k in urls.keys() if k != 'population'):
     data_frame = data_frame.drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
     data_frame.Date = pd.to_datetime(data_frame.Date)
     data_frame.Value = data_frame.Value.astype(int)
@@ -70,11 +46,12 @@ for name, data_frame in ((k, data_frame_from_url(k)) for k in URLS.keys() if k !
     data_frames[name] = data_frame
     data_frames[name + ' per million'] = data_frame.div(population.Population, axis=1).dropna(axis=1)
     data_frames[name + ' per week per million'] = data_frames[name + ' per million'].diff(7).dropna().astype(int)
-data_frames['mortality rate'] = (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
+data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
 
 countries = list(argv[1:])
-
 cf.go_offline()
-for label in ('confirmed cases', 'deaths',):
-    df = data_frames[label][countries] if countries else data_frames[label]
-    df.iplot(asFigure=True, title=label).show()
+for chart in data_frames.keys():
+    df = data_frames[chart][countries] if countries else data_frames[chart]
+    fig = df.iplot(asFigure=True, title='Wuhan Corona Virus Pandemic ' + chart.title())
+    fig['layout']['hovermode'] = 'x'
+    fig.show()
