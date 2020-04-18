@@ -61,7 +61,8 @@ def get_covid19_data(population_data):
 
 # Covid-19 Charts
 def plot_covid19_data(data_frames, countries_to_show):
-    report_date = datetime.now().strftime('%d %b %Y %H:%M')
+    report_date = '{} retrieved ({})'.format(max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
+                                             datetime.now().strftime('%d %b %Y %H:%M'))
     charts = [
         data_frames[chart][countries_to_show].iplot(
             asFigure=True,
