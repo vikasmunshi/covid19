@@ -6,6 +6,9 @@ from os import path
 from sys import argv
 
 import cufflinks as cf
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
 import pandas as pd
 import requests
 import requests_cache
@@ -48,18 +51,31 @@ for name, data_frame in ((k, data_frame_from_url(k)) for k in urls.keys() if k !
     data_frame['World'] = data_frame.sum(axis=1)
     data_frame['Rest'] = data_frame['World'] - data_frame['China']
     data_frames[name] = data_frame
+    data_frames[name + ' last 7 days'] = data_frames[name].diff(7).dropna()
     data_frames[name + ' per million'] = data_frame.div(population.Population, axis=1).dropna(axis=1)
-    data_frames[name + ' per week per million'] = data_frames[name + ' per million'].diff(7).dropna().astype(int)
-    data_frames[name + ' per million'] = data_frames[name + ' per million'].astype(int)
+    data_frames[name + ' per million last 7 days'] = data_frames[name + ' per million'].diff(7).dropna()
 data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
 
 # Countries to show
-countries = list(argv[1:])
+countries = list(argv[1:]) or ['Netherlands', 'Germany', 'Italy', 'Spain', 'France', 'Belgium', 'Poland', 'Czechia',
+                               'Lithuania', 'United Kingdom', 'US', 'Taiwan*', 'Singapore', 'Korea, South', 'India',
+                               'China', 'Rest', 'World']
 
-# Plot(s)
+# Plot
 cf.go_offline()
-for chart in data_frames.keys():
-    df = data_frames[chart][countries] if countries else data_frames[chart]
-    fig = df.iplot(asFigure=True, title='Wuhan Corona Virus Pandemic ' + chart.title())
-    fig['layout']['hovermode'] = 'x'
-    fig.show()
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+charts = [
+    data_frames[chart][countries].iplot(
+        asFigure=True,
+        title='Wuhan Corona Virus Pandemic ' + chart.title(),
+        theme='solar',
+        colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616', '#479B55',
+                '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5', '#FF0092', '#22FFA7',
+                '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72'],
+    ) for chart in data_frames.keys()]
+for chart in charts:
+    chart.update_layout(hovermode='x', height=750)
+app.layout = html.Div([dcc.Graph(figure=chart) for chart in charts])
+app.title = 'Wuhan Corona Virus Pandemic'
+app.run_server()
