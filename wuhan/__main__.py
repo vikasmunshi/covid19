@@ -55,6 +55,7 @@ for name, data_frame in ((k, data_frame_from_url(k)) for k in urls.keys() if k !
     data_frames[name + ' per million'] = data_frame.div(population.Population, axis=1).dropna(axis=1)
     data_frames[name + ' per million last 7 days'] = data_frames[name + ' per million'].diff(7).dropna()
 data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
+report_date = max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y')
 
 # Countries to show
 countries = list(argv[1:]) or ['Netherlands', 'Germany', 'Italy', 'Spain', 'France', 'Belgium', 'Poland', 'Czechia',
@@ -68,7 +69,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 charts = [
     data_frames[chart][countries].iplot(
         asFigure=True,
-        title='Wuhan Corona Virus Pandemic ' + chart.title(),
+        title='Wuhan Corona Virus Pandemic {} on {}'.format(chart.title(), report_date),
         theme='solar',
         colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616', '#479B55',
                 '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5', '#FF0092', '#22FFA7',
@@ -77,5 +78,5 @@ charts = [
 for chart in charts:
     chart.update_layout(hovermode='x', height=750)
 app.layout = html.Div([dcc.Graph(figure=chart) for chart in charts])
-app.title = 'Wuhan Corona Virus Pandemic'
+app.title = 'Wuhan Corona Virus Pandemic Stats on {}'.format(report_date)
 app.run_server()
