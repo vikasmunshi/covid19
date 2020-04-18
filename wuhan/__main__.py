@@ -59,7 +59,7 @@ data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['
 # Countries to show
 countries = list(argv[1:]) or ['Netherlands', 'Germany', 'Italy', 'Spain', 'France', 'Belgium', 'Poland', 'Czechia',
                                'Lithuania', 'United Kingdom', 'US', 'Taiwan*', 'Singapore', 'Korea, South', 'India',
-                               'China', 'Rest', 'World']
+                               'China', 'World']
 
 # Plot
 cf.go_offline()
