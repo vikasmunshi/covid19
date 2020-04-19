@@ -12,7 +12,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import requests
-from flask import request
+from flask import redirect, request
 
 from .data_corrections import data_corrections
 from .urls import urls
@@ -61,7 +61,8 @@ def get_covid19_data(population_data):
 
 
 # Covid-19 Charts
-def plot_covid19_data(data_frames, countries_to_show):
+def plot_covid19_data(population_data, countries_to_show):
+    data_frames = get_covid19_data(population_data)
     report_date = '{} <i>retrieved {}</i>'.format(max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
                                                   datetime.now().strftime('%d %b %Y %H:%M'))
     charts = [
@@ -79,14 +80,17 @@ def plot_covid19_data(data_frames, countries_to_show):
 
 
 # Layout Charts, refresh every 12 hours
-def create_layout(countries_to_show):
-    cache = [[0.0, None]]
-    population_data = get_population()
+def create_layout(population_data, countries_to_show):
+    def get_charts():
+        return html.Div([dcc.Graph(figure=chart) for chart in
+                         plot_covid19_data(population_data=population_data, countries_to_show=countries_to_show)])
+
+    cache = [[time(), get_charts()]]
 
     def layout():
         if time() - cache[0][0] > 12 * 3600:
-            charts = plot_covid19_data(get_covid19_data(population_data), countries_to_show)
-            cache[0] = [time(), html.Div([dcc.Graph(figure=chart) for chart in charts])]
+            cache[0][1] = get_charts()
+            cache[0][0] = time()
         return cache[0][1]
 
     return layout
@@ -101,7 +105,7 @@ if __name__ == '__main__':
     cf.go_offline()
     external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-    app.layout = create_layout(countries_to_show=countries)
+    app.layout = create_layout(population_data=get_population(), countries_to_show=countries)
     app.title = 'Wuhan Corona Virus Pandemic Stats'
 
     run = True
@@ -113,7 +117,7 @@ if __name__ == '__main__':
         global run
         run = request.path == '/restart'
         request.environ.get('werkzeug.server.shutdown')()
-        return 'Server restarting ...' if run else 'Server shutdown ...'
+        return redirect('/', code=302) if run else 'Bye, server shutdown ...'
 
 
     while run:
