@@ -12,6 +12,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import requests
+from flask import request
 
 from .data_corrections import data_corrections
 from .urls import urls
@@ -61,8 +62,8 @@ def get_covid19_data(population_data):
 
 # Covid-19 Charts
 def plot_covid19_data(data_frames, countries_to_show):
-    report_date = '{} retrieved ({})'.format(max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
-                                             datetime.now().strftime('%d %b %Y %H:%M'))
+    report_date = '{} <i>retrieved {}</i>'.format(max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
+                                                  datetime.now().strftime('%d %b %Y %H:%M'))
     charts = [
         data_frames[chart][countries_to_show].iplot(
             asFigure=True,
@@ -102,4 +103,18 @@ if __name__ == '__main__':
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
     app.layout = create_layout(countries_to_show=countries)
     app.title = 'Wuhan Corona Virus Pandemic Stats'
-    app.run_server(host='0.0.0.0')
+
+    run = True
+
+
+    @app.server.route('/shutdown')
+    @app.server.route('/restart')
+    def shutdown():
+        global run
+        run = request.path == '/restart'
+        request.environ.get('werkzeug.server.shutdown')()
+        return 'Server restarting ...' if run else 'Server shutdown ...'
+
+
+    while run:
+        app.run_server(host='0.0.0.0')
