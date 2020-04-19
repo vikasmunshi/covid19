@@ -78,8 +78,9 @@ def plot_covid19_data(data_frames, countries_to_show):
 
 
 # Layout Charts, refresh every 12 hours
-def create_layout(countries_to_show, population_data):
+def create_layout(countries_to_show):
     cache = [[0.0, None]]
+    population_data = get_population()
 
     def layout():
         if time() - cache[0][0] > 12 * 3600:
@@ -94,11 +95,11 @@ if __name__ == '__main__':
     # Countries to show
     countries = list(argv[1:]) or ['Netherlands', 'Germany', 'Italy', 'Spain', 'France', 'Belgium', 'Poland', 'Czechia',
                                    'Lithuania', 'United Kingdom', 'US', 'Taiwan*', 'Singapore', 'Korea, South', 'India',
-                                   'China', 'World']
+                                   'China', 'World', 'Rest']
     # Plot
     cf.go_offline()
     external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-    app.layout = create_layout(countries_to_show=countries, population_data=get_population())
+    app.layout = create_layout(countries_to_show=countries)
     app.title = 'Wuhan Corona Virus Pandemic Stats'
-    app.run_server()
+    app.run_server(host='0.0.0.0')
