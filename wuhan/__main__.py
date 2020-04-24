@@ -54,7 +54,9 @@ def plot_covid19_data(population_data, countries_to_show):
         data_frame['Rest'] = data_frame['World'] - data_frame['China']
         data_frames[name] = data_frame
         data_frames[name + ' last 7 days'] = data_frames[name].diff(7).dropna()
-        data_frames[name + ' 7 day growth rate'] = data_frames[name + ' last 7 days'] / data_frames[name]
+        data_frames[name + ' 7 day growth rate'] = 1 + (
+                data_frames[name + ' last 7 days'].diff(7) / data_frames[name + ' last 7 days']
+        ).dropna()
         data_frames[name + ' per million'] = data_frame.div(population_data.Population, axis=1).dropna(axis=1)
         data_frames[name + ' per million last 7 days'] = data_frames[name + ' per million'].diff(7).dropna()
     data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
