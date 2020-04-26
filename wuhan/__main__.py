@@ -10,6 +10,7 @@ import cufflinks as cf
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import numpy as np
 import pandas as pd
 import requests
 from flask import redirect, request
@@ -41,36 +42,43 @@ def get_population():
 # Retrieve Covid-19 Data and plot charts
 def plot_covid19_data(population_data, countries_to_show):
     data_frames = {}
-    for name, data_frame in ((k, data_frame_from_url(k)) for k in urls.keys() if k != 'population'):
-        data_frame = data_frame.drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
-        data_frame.Date = pd.to_datetime(data_frame.Date)
-        data_frame.Value = data_frame.Value.astype(int)
-        data_frame = data_frame.groupby(['Country/Region', 'Date']).sum().unstack()
-        data_frame = pd.concat([data_frame, population_data], axis=1, join='inner').drop('Population', axis=1)
-        data_frame = data_frame.transpose()
-        data_frame.index = pd.MultiIndex.from_tuples(data_frame.index)
-        data_frame = data_frame.rename_axis(index=['Value', 'Date']).reset_index(['Value']).drop('Value', axis=1)
-        data_frame['World'] = data_frame.sum(axis=1)
-        data_frame['Rest'] = data_frame['World'] - data_frame['China']
-        data_frames[name] = data_frame
-        data_frames[name + ' last 7 days'] = data_frames[name].diff(7).dropna()
-        data_frames[name + ' 7 day growth rate'] = 1 + (
-                data_frames[name + ' last 7 days'].diff(7) / data_frames[name + ' last 7 days']
-        ).dropna()
-        data_frames[name + ' per million'] = data_frame.div(population_data.Population, axis=1).dropna(axis=1)
-        data_frames[name + ' per million last 7 days'] = data_frames[name + ' per million'].diff(7).dropna()
+    for name, df in ((k, data_frame_from_url(k)) for k in urls.keys() if k != 'population'):
+        df = df.drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
+        df.Date = pd.to_datetime(df.Date)
+        df.Value = df.Value.astype(int)
+        df = df.groupby(['Country/Region', 'Date']).sum().unstack()
+        df = pd.concat([df, population_data], axis=1, join='inner').drop('Population', axis=1)
+        df = df.transpose()
+        df.index = pd.MultiIndex.from_tuples(df.index)
+        df = df.rename_axis(index=['Value', 'Date']).reset_index(['Value']).drop('Value', axis=1)
+        df['World'] = df.sum(axis=1)
+        df['Rest'] = df['World'] - df['China']
+        n_days = 7
+        df_new = df.diff(n_days).fillna(0)
+        df_growth = ((df_new / df_new.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0).astype(float)
+        df_per_mil = df.div(population_data.Population, axis=1).fillna(0).astype(int)
+        data_frames[name] = df
+        data_frames['new ' + name] = (df_new / n_days).astype(int)
+        data_frames[name + ' per million'] = df_per_mil
+        data_frames['new ' + name + ' per million'] = df_per_mil.diff(n_days).fillna(0) / n_days
+        data_frames[name + ' growth rate'] = df_growth
+
     data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
-    report_date = '{} <i>retrieved {}</i>'.format(max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
-                                                  datetime.now().strftime('%d %b %Y %H:%M'))
+
     return [
         data_frames[metric][countries_to_show].iplot(
             asFigure=True,
-            title='Wuhan Corona Virus Pandemic {} as on {}'.format(metric.title(), report_date),
+            title='Wuhan Corona Virus Pandemic {} as on {} <i>retrieved {}</i>'.format(
+                metric.title(),
+                max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
+                datetime.now().strftime('%d %b %Y %H:%M')),
             theme='solar',
             colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616', '#479B55',
                     '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5', '#FF0092', '#22FFA7',
                     '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72'],
-        ).update_layout(hovermode='x', height=750) for metric in data_frames.keys()]
+        ).update_layout(hovermode='x', height=750)
+        for metric in data_frames.keys()
+    ]
 
 
 # Layout Charts, refresh every 12 hours
@@ -102,7 +110,6 @@ if __name__ == '__main__':
     cf.go_offline()
     external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-    restart = True
 
 
     @app.server.route('/shutdown')
@@ -114,6 +121,7 @@ if __name__ == '__main__':
         return redirect('/', code=302)
 
 
+    restart = True
     while restart:
         restart = False
         app.layout = create_layout(population_data=population, countries_to_show=countries)
