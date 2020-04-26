@@ -60,7 +60,7 @@ def plot_covid19_data(population_data, countries_to_show):
         data_frames[name] = df
         data_frames['new ' + name] = (df_new / n_days).astype(int)
         data_frames[name + ' per million'] = df_per_mil
-        data_frames['new ' + name + ' per million'] = df_per_mil.diff(n_days).fillna(0) / n_days
+        data_frames['new ' + name + ' per million'] = (df_per_mil.diff(n_days).fillna(0) / n_days).astype(int)
         data_frames[name + ' growth rate'] = df_growth
 
     data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
