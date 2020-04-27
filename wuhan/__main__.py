@@ -55,13 +55,12 @@ def plot_covid19_data(population_data, countries_to_show):
         df['Rest'] = df['World'] - df['China']
         n_days = 7
         df_new = df.diff(n_days).fillna(0)
-        df_growth = ((df_new / df_new.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0).astype(float)
-        df_per_mil = df.div(population_data.Population, axis=1).fillna(0).astype(int)
+        data_frames[name + ' reproduction rate'] = ((df_new / df_new.shift(n_days)) ** (1 / n_days)
+                                                    ).replace(np.inf, np.nan).fillna(0)
         data_frames[name] = df
-        data_frames['new ' + name] = (df_new / n_days).astype(int)
-        data_frames[name + ' per million'] = df_per_mil
-        data_frames['new ' + name + ' per million'] = (df_per_mil.diff(n_days).fillna(0) / n_days).astype(int)
-        data_frames[name + ' growth rate'] = df_growth
+        data_frames['new ' + name] = df_new / n_days
+        data_frames[name + ' per million'] = df.div(population_data.Population, axis=1).fillna(0)
+        data_frames['new ' + name + ' per million'] = data_frames[name + ' per million'].diff(n_days).fillna(0) / n_days
 
     data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
 
@@ -101,9 +100,9 @@ def create_layout(population_data, countries_to_show):
 
 if __name__ == '__main__':
     # Countries to show and their population
-    countries = list(argv[1:]) or ['Netherlands', 'Germany', 'Italy', 'Spain', 'France', 'Belgium', 'Poland', 'Czechia',
-                                   'Lithuania', 'United Kingdom', 'US', 'Taiwan*', 'Singapore', 'Korea, South', 'India',
-                                   'China', 'World', 'Rest']
+    countries = list(argv[1:]) or ['Australia', 'Austria', 'Belgium', 'Brazil', 'China', 'Czechia', 'France', 'Germany',
+                                   'India', 'Italy', 'Japan', 'Korea, South', 'Lithuania', 'Netherlands', 'Poland',
+                                   'Singapore', 'Spain', 'Taiwan*', 'US', 'United Kingdom', 'World', 'Rest', ]
     population = get_population().loc[countries, :]
 
     # Dash
