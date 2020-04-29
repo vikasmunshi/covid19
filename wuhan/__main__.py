@@ -71,7 +71,7 @@ def plot_covid19_data(population_data, countries_to_show):
             asFigure=True,
             title='Wuhan Corona Virus Pandemic {} as on {} <i>retrieved {}</i>'.format(
                 metric.title(),
-                max(data_frames['mortality rate (%)'].index).strftime('%d %b %Y'),
+                max(data_frames['case fatality rate (%)'].index).strftime('%d %b %Y'),
                 datetime.now().strftime('%d %b %Y %H:%M')),
             theme='solar',
             colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616', '#479B55',
@@ -93,8 +93,7 @@ def create_layout(population_data, countries_to_show):
 
     def layout():
         if time() - cache[0][0] > 12 * 3600:
-            cache[0][1] = get_charts()
-            cache[0][0] = time()
+            cache[0] = [time(), get_charts()]
         return cache[0][1]
 
     return layout
