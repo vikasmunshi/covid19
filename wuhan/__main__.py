@@ -42,7 +42,7 @@ def get_population():
 # Retrieve Covid-19 Data and plot charts
 def plot_covid19_data(population_data, countries_to_show):
     data_frames = {}
-    for name, df in ((k, data_frame_from_url(k)) for k in urls.keys() if k != 'population'):
+    for metric, df in ((k, data_frame_from_url(k)) for k in urls.keys() if k != 'population'):
         df = df.drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
         df.Date = pd.to_datetime(df.Date)
         df.Value = df.Value.astype(int)
@@ -54,15 +54,17 @@ def plot_covid19_data(population_data, countries_to_show):
         df['World'] = df.sum(axis=1)
         df['Rest'] = df['World'] - df['China']
         n_days = 7
-        df_new = df.diff(n_days).fillna(0)
-        data_frames[name + ' reproduction rate'] = ((df_new / df_new.shift(n_days)) ** (1 / n_days)
-                                                    ).replace(np.inf, np.nan).fillna(0)
-        data_frames[name] = df
-        data_frames['new ' + name] = df_new / n_days
-        data_frames[name + ' per million'] = df.div(population_data.Population, axis=1).fillna(0)
-        data_frames['new ' + name + ' per million'] = data_frames[name + ' per million'].diff(n_days).fillna(0) / n_days
+        delta = df.diff(n_days).fillna(0)
+        per_million = df.div(population_data.Population, axis=1).fillna(0)
+        reproduction_rate = ((delta / delta.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0)
 
-    data_frames['mortality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
+        data_frames[metric + ' reproduction rate'] = reproduction_rate
+        data_frames[metric] = df
+        data_frames['new ' + metric] = (delta / n_days).astype(int)
+        data_frames[metric + ' per million'] = per_million
+        data_frames['new ' + metric + ' per million'] = per_million.diff(n_days).fillna(0) / n_days
+
+    data_frames['case fatality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
 
     return [
         data_frames[metric][countries_to_show].iplot(
