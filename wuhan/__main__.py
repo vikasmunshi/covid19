@@ -55,24 +55,21 @@ def plot_covid19_data(population_data, countries_to_show):
         df['Rest'] = df['World'] - df['China']
         n_days = 7
         delta = df.diff(n_days).fillna(0)
-        per_million = df.div(population_data.Population, axis=1).fillna(0)
         reproduction_rate = ((delta / delta.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0)
-
         data_frames[metric + ' reproduction rate'] = reproduction_rate
         data_frames[metric] = df
-        data_frames['new ' + metric] = (delta / n_days).astype(int)
-        data_frames[metric + ' per million'] = per_million
-        data_frames['new ' + metric + ' per million'] = per_million.diff(n_days).fillna(0) / n_days
+        data_frames['daily ' + metric] = delta / n_days
+        data_frames[metric + ' per million'] = per_million = df.div(population_data.Population, axis=1).fillna(0)
+        data_frames['daily ' + metric + ' per million'] = per_million.diff(n_days).fillna(0) / n_days
 
     data_frames['case fatality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
+    report_date = max(data_frames['case fatality rate (%)'].index).strftime('%d %b %Y')
 
     return [
         data_frames[metric][countries_to_show].iplot(
             asFigure=True,
             title='Wuhan Corona Virus Pandemic {} as on {} <i>retrieved {}</i>'.format(
-                metric.title(),
-                max(data_frames['case fatality rate (%)'].index).strftime('%d %b %Y'),
-                datetime.now().strftime('%d %b %Y %H:%M')),
+                metric.title(), report_date, datetime.now().strftime('%d %b %Y %H:%M')),
             theme='solar',
             colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616', '#479B55',
                     '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5', '#FF0092', '#22FFA7',
