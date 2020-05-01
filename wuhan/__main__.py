@@ -58,9 +58,9 @@ def plot_covid19_data(population_data, countries_to_show):
         reproduction_rate = ((delta / delta.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0)
         data_frames[metric + ' reproduction rate'] = reproduction_rate
         data_frames[metric] = df
-        data_frames['daily ' + metric] = delta / n_days
+        data_frames['daily ' + metric] = df.diff(1).fillna(0)
         data_frames[metric + ' per million'] = per_million = df.div(population_data.Population, axis=1).fillna(0)
-        data_frames['daily ' + metric + ' per million'] = per_million.diff(n_days).fillna(0) / n_days
+        data_frames['daily ' + metric + ' per million'] = per_million.diff(1).fillna(0)
 
     data_frames['case fatality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
     report_date = max(data_frames['case fatality rate (%)'].index).strftime('%d %b %Y')
