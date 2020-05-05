@@ -99,8 +99,8 @@ def create_layout(population_data, countries_to_show):
 if __name__ == '__main__':
     # Countries to show and their population
     countries = list(argv[1:]) or ['Australia', 'Austria', 'Belgium', 'Brazil', 'China', 'Czechia', 'France', 'Germany',
-                                   'India', 'Italy', 'Japan', 'Korea, South', 'Lithuania', 'Netherlands', 'Poland',
-                                   'Singapore', 'Spain', 'Taiwan*', 'US', 'United Kingdom', 'World', 'Rest', ]
+                                   'India', 'Iran', 'Italy', 'Japan', 'Korea, South', 'Lithuania', 'Netherlands',
+                                   'Poland', 'Singapore', 'Spain', 'Taiwan*', 'US', 'United Kingdom', 'World', 'Rest', ]
     population = get_population().loc[countries, :]
 
     # Dash
