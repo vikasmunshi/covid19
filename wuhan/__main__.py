@@ -4,7 +4,8 @@
 from datetime import datetime
 from io import StringIO
 from sys import argv
-from time import time
+from threading import Thread
+from time import sleep, time
 
 import cufflinks as cf
 import dash
@@ -65,42 +66,41 @@ def plot_covid19_data(population_data, countries_to_show):
     data_frames['case fatality rate (%)'] = 100 * (data_frames['deaths'] / data_frames['confirmed cases']).fillna(0)
     report_date = max(data_frames['case fatality rate (%)'].index).strftime('%d %b %Y')
 
-    return [
-        data_frames[metric][countries_to_show].iplot(
-            asFigure=True,
-            title='Wuhan Corona Virus Pandemic {} as on {} <i>retrieved {}</i>'.format(
-                metric.title(), report_date, datetime.now().strftime('%d %b %Y %H:%M')),
-            theme='solar',
-            colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616', '#479B55',
-                    '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5', '#FF0092', '#22FFA7',
-                    '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72'],
-        ).update_layout(hovermode='x', height=750)
-        for metric in data_frames.keys()
-    ]
+    return html.Div(
+        [dcc.Graph(figure=chart) for chart in [
+            data_frames[metric][countries_to_show].iplot(
+                asFigure=True,
+                title='Wuhan Corona Virus Pandemic {} as on {} <i>retrieved {}</i>'.format(
+                    metric.title(), report_date, datetime.now().strftime('%d %b %Y %H:%M')),
+                theme='solar',
+                colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616',
+                        '#479B55', '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5',
+                        '#FF0092', '#22FFA7', '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72'],
+            ).update_layout(hovermode='x', height=750) for metric in data_frames.keys()]])
 
 
-# Layout Charts, refresh every 12 hours
+# Layout Charts, refresh every midnight
 def create_layout(population_data, countries_to_show):
-    def get_charts():
-        return html.Div([
-            dcc.Graph(figure=chart)
-            for chart in plot_covid19_data(population_data=population_data, countries_to_show=countries_to_show)])
+    cache = {}
 
-    cache = [[time(), get_charts()]]
+    def update_cache(period: int = 86400):
+        while True:
+            cache['charts'] = plot_covid19_data(population_data, countries_to_show)
+            current_time = int(time())
+            sleep((1 + current_time // period) * period - current_time)
 
-    def layout():
-        if time() - cache[0][0] > 12 * 3600:
-            cache[0] = [time(), get_charts()]
-        return cache[0][1]
+    Thread(target=update_cache, daemon=True).start()
 
-    return layout
+    loading = html.Div('Retrieving Data...')
+    return lambda: cache.get('charts', loading)
 
 
 if __name__ == '__main__':
     # Countries to show and their population
     countries = list(argv[1:]) or ['Australia', 'Austria', 'Belgium', 'Brazil', 'China', 'Czechia', 'France', 'Germany',
                                    'India', 'Iran', 'Italy', 'Japan', 'Korea, South', 'Lithuania', 'Netherlands',
-                                   'Poland', 'Singapore', 'Spain', 'Taiwan*', 'US', 'United Kingdom', 'World', 'Rest', ]
+                                   'Poland', 'Singapore', 'Spain', 'Sweden', 'Taiwan*', 'US', 'United Kingdom', 'World',
+                                   'Rest', ]
     population = get_population().loc[countries, :]
 
     # Dash
