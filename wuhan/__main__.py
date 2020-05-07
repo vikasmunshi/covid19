@@ -79,20 +79,26 @@ def plot_covid19_data(population_data, countries_to_show):
             ).update_layout(hovermode='x', height=750) for metric in data_frames.keys()]])
 
 
-# Layout Charts, refresh every midnight
+# Layout Charts, refresh every 8th hour i.e. 00:00, 08:00, 16:00 (28800 seconds)
 def create_layout(population_data, countries_to_show):
-    cache = {}
+    cache = {'charts': html.Div('Retrieving Data...')}
 
-    def update_cache(period: int = 86400):
+    def update():
         while True:
-            cache['charts'] = plot_covid19_data(population_data, countries_to_show)
-            current_time = int(time())
-            sleep((1 + current_time // period) * period - current_time)
+            try:
+                cache['charts'] = plot_covid19_data(population_data, countries_to_show)
+                print(datetime.now(), 'Cache updated', flush=True)
+            except Exception as e:
+                print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
+                next_update = (1 + int(time()) // 3600) * 3600
+            else:
+                next_update = (1 + int(time()) // 28800) * 28800
+            while (diff := next_update - int(time())) > 0:
+                sleep(diff // 2)
 
-    Thread(target=update_cache, daemon=True).start()
+    Thread(target=update, daemon=True).start()
 
-    loading = html.Div('Retrieving Data...')
-    return lambda: cache.get('charts', loading)
+    return lambda: cache['charts']
 
 
 if __name__ == '__main__':
