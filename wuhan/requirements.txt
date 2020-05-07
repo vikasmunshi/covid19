@@ -1,5 +1,0 @@
-pandas>=1.0.3
-requests>=2.23.0
-plotly>=4.6.0
-cufflinks>=0.17.3
-dash>=1.11.0
