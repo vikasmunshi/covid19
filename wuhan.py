@@ -77,8 +77,6 @@ def plot_covid19_data(population_data):
             countries_to_show = per_mil[countries_to_show].loc[last_date].sort_values(ascending=False).index
             last_date = last_date.strftime('%d %b %Y')
             cfr = df[countries_to_show]
-        else:
-            cfr = 100 * cfr / df[countries_to_show]
 
         n_days = 7
         df = df[countries_to_show]
@@ -94,8 +92,10 @@ def plot_covid19_data(population_data):
         charts.append(per_mil.figure(title=t.format('', ' per Million'), **params))
         charts.append(daily.figure(title=t.format(daily_label, ''), kind='bar', **params))
         charts.append(df.figure(title=t.format('Total ', ''), **params))
+
         if metric == 'Cases':
             rr = ((delta / delta.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0)
+            cfr = 100 * cfr / df
             charts.append(rr.figure(title=t.format('Case Reproduction Rate (', ')'), **params))
             charts.append(cfr.figure(title=title.format('Case Fatality Rate', '', '', last_date, retrieved), **params))
 
