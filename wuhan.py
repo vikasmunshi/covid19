@@ -23,8 +23,8 @@ def data_frame_from_url(url: str) -> pd.DataFrame:
 # Population Data
 def get_population():
     url = 'http://api.worldbank.org/countries/all/indicators/SP.POP.TOTL?format=csv'
-    population = data_frame_from_url(url)[['Country Code', 'Country Name', '2018']]
-    population.columns = ['Code', 'Country', 'Population']
+    population = data_frame_from_url(url)[['Country Name', 'Country Code', '2018']]
+    population.columns = ['Country', 'Code', 'Population']
     for country, name_change, missing_data in [
         ['Bahamas, The', 'Bahamas', None], ['Brunei Darussalam', 'Brunei', None],
         ['Congo, Dem. Rep.', 'Congo (Kinshasa)', None], ['Congo, Rep.', 'Congo (Brazzaville)', None],
@@ -33,12 +33,12 @@ def get_population():
         ['Kyrgyz Republic', 'Kyrgyzstan', None], ['Lao PDR', 'Laos', None], ['Myanmar', 'Burma', None],
         ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
         ['Syrian Arab Republic', 'Syria', None], ['United States', 'US', None], ['Venezuela, RB', 'Venezuela', None],
-        ['Yemen, Rep.', 'Yemen', None], ['Taiwan', None, ['TWN', 'Taiwan*', 23780452]]
+        ['Yemen, Rep.', 'Yemen', None], ['Taiwan*', None, ['TWN', 23780452]]
     ]:
         if name_change:
-            population[population.Country == country]['Country'] = name_change
+            population['Country'][population.Country == country] = name_change
         if missing_data:
-            population.loc[len(population)] = missing_data
+            population.loc[len(population)] = [country] + missing_data
     return population
 
 
@@ -122,22 +122,22 @@ def plot_covid19_data(population_data):
     return html.Div([dcc.Graph(figure=c.update_layout(height=800, hovermode='x')) for c in charts])
 
 
-# Layout Charts, refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
+# Cache Charts, refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
 def create_layout(population_data):
     cache = {'charts': html.Div('Retrieving Data...')}
 
     def update_cache():
-        while True:
+        refresh = True
+        while refresh:
             try:
                 cache['charts'] = plot_covid19_data(population_data)
-                print(datetime.now(), 'Cache updated', flush=True)
             except Exception as e:
                 print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
                 update_at = (1 + int(time()) // 3600) * 3600
             else:
                 update_at = (1 + int(time()) // 43200) * 43200
-            while (diff := update_at - time()) > 0:
-                print(datetime.now(), '{}s to update at {}'.format(diff, datetime.fromtimestamp(update_at)), flush=True)
+                refresh = __name__ == '__main__'
+            while (diff := update_at - int(time())) > 0:
                 sleep(diff / 4)
 
     Thread(target=update_cache, daemon=True).start()
