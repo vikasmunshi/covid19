@@ -14,92 +14,112 @@ import numpy as np
 import pandas as pd
 import requests
 
-urls = {
-    'Population': 'https://datahub.io/JohnSnowLabs/population-figures-by-country/r/population-figures-by-country-csv.csv',
-    'Cases': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_confirmed_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_confirmed_global.csv',
-    'Deaths': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_deaths_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_deaths_global.csv',
-    'Recovered': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_recovered_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_recovered_global.csv',
-}
-
-data_corrections = [['Bahamas, The', 'Bahamas', None], ['Brunei Darussalam', 'Brunei', None],
-                    ['Congo, Dem. Rep.', 'Congo (Kinshasa)', None], ['Congo, Rep.', 'Congo (Brazzaville)', None],
-                    ['Czech Republic', 'Czechia', None], ['Egypt, Arab Rep.', 'Egypt', None],
-                    ['Gambia, The', 'Gambia', None], ['Iran, Islamic Rep.', 'Iran', None],
-                    ['Korea, Rep.', 'Korea, South', None], ['Kyrgyz Republic', 'Kyrgyzstan', None],
-                    ['Lao PDR', 'Laos', None], ['Macedonia, FYR', 'North Macedonia', None], ['Myanmar', 'Burma', None],
-                    ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
-                    ['Syrian Arab Republic', 'Syria', None], ['Taiwan*', None, 23780452], ['United States', 'US', None],
-                    ['Venezuela, RB', 'Venezuela', None], ['Yemen, Rep.', 'Yemen', None]]
-
 
 # retrieve data from URL and return Pandas DataFrame
-def data_frame_from_url(url_name: str) -> pd.DataFrame:
-    return pd.read_csv(StringIO(requests.get(urls[url_name]).content.decode()))
+def data_frame_from_url(url: str) -> pd.DataFrame:
+    return pd.read_csv(StringIO(requests.get(url).content.decode()))
 
 
 # Population Data
 def get_population():
-    population_data = data_frame_from_url('Population').set_index('Country').loc[:, ['Year_2016']].dropna(0)
-    population_data.columns = ['Population']
-    population_data.Population = population_data.Population.astype(int)
-    for country, name_change, missing_data in data_corrections:
+    url = 'http://api.worldbank.org/countries/all/indicators/SP.POP.TOTL?format=csv'
+    population = data_frame_from_url(url)[['Country Code', 'Country Name', '2018']]
+    population.columns = ['Code', 'Country', 'Population']
+    for country, name_change, missing_data in [
+        ['Bahamas, The', 'Bahamas', None], ['Brunei Darussalam', 'Brunei', None],
+        ['Congo, Dem. Rep.', 'Congo (Kinshasa)', None], ['Congo, Rep.', 'Congo (Brazzaville)', None],
+        ['Czech Republic', 'Czechia', None], ['Egypt, Arab Rep.', 'Egypt', None], ['Gambia, The', 'Gambia', None],
+        ['Iran, Islamic Rep.', 'Iran', None], ['Korea, Rep.', 'Korea, South', None],
+        ['Kyrgyz Republic', 'Kyrgyzstan', None], ['Lao PDR', 'Laos', None], ['Myanmar', 'Burma', None],
+        ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
+        ['Syrian Arab Republic', 'Syria', None], ['United States', 'US', None], ['Venezuela, RB', 'Venezuela', None],
+        ['Yemen, Rep.', 'Yemen', None], ['Taiwan', None, ['TWN', 'Taiwan*', 23780452]]
+    ]:
         if name_change:
-            population_data.loc[name_change] = population_data.loc[country]
+            population[population.Country == country]['Country'] = name_change
         if missing_data:
-            population_data.loc[country] = missing_data
-    population_data = population_data / 10 ** 6
-    return population_data
+            population.loc[len(population)] = missing_data
+    return population
+
+
+# Retrieve Covid-19 Data and plot charts
+def get_covid19_data(label: str):
+    urls = {
+        'cases': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_confirmed_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_confirmed_global.csv',
+        'deaths': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_deaths_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_deaths_global.csv',
+        'recovered': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_recovered_global_narrow.csv?dest=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename-oldtag03=%23affected%2Bvalue&rename-newtag03=%23affected%2Binfected%2Bvalue%2Bnum&rename-header03=Value&filter04=clean&clean-date-tags04=%23date&filter05=sort&sort-tags05=%23date&sort-reverse05=on&filter06=sort&sort-tags06=%23country%2Bname%2C%23adm1%2Bname&tagger-match-all=on&tagger-default-tag=%23affected%2Blabel&tagger-01-header=province%2Fstate&tagger-01-tag=%23adm1%2Bname&tagger-02-header=country%2Fregion&tagger-02-tag=%23country%2Bname&tagger-03-header=lat&tagger-03-tag=%23geo%2Blat&tagger-04-header=long&tagger-04-tag=%23geo%2Blon&header-row=1&url=https%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data%2Fcsse_covid_19_time_series%2Ftime_series_covid19_recovered_global.csv',
+    }
+    df = data_frame_from_url(urls[label]).drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
+    df.Date = pd.to_datetime(df.Date)
+    df.Value = df.Value.astype(int)
+    df = df.groupby(['Country/Region', 'Date']).sum().reset_index()
+    df.columns = ['Country', 'Date', label.title()]
+    return df.sort_values(by=['Country', 'Date'])
 
 
 # Retrieve Covid-19 Data and plot charts
 def plot_covid19_data(population_data):
-    params = {'theme': 'solar',
-              'colors': ['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616',
-                         '#479B55', '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5',
-                         '#FF0092', '#22FFA7', '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72']}
-    title = 'Wuhan Corona Virus Pandemic {}{}{} as on {} <i>Retrieved {}</i>'
-    charts = []
-    cfr = last_date = countries_to_show = None
-    retrieved = datetime.now().strftime('%d %b %Y %H:%M')
-    for metric, df in ((k, data_frame_from_url(k)) for k in ('Deaths', 'Cases')):
-        df = df.drop(0)[['Country/Region', 'Province/State', 'Date', 'Value']]
-        df.Date = pd.to_datetime(df.Date)
-        df.Value = df.Value.astype(int)
-        df = df.groupby(['Country/Region', 'Date']).sum().unstack().transpose()
-        df.index = pd.MultiIndex.from_tuples(df.index)
-        df = df.rename_axis(index=['Value', 'Date']).reset_index(['Value'], drop=True)
-        df['World'] = df.sum(axis=1)
-        per_mil = df.div(population_data.Population, axis=1).fillna(0)
+    df = get_covid19_data('cases')
+    df = pd.merge(df, get_covid19_data('deaths'), on=['Country', 'Date'], how='inner')
+    df = pd.concat([df, df.groupby('Date').sum().reset_index('Date').sort_values('Date')]).fillna('World')
+    last_date = max(df.Date)
+    df = df[df.Country.isin(list(df[df.Date == last_date].nlargest(n=31, columns='Deaths').Country) + ['Taiwan*'])]
 
-        if metric == 'Deaths':
-            last_date = max(df.index)
-            countries_to_show = list(df.loc[last_date].nlargest(31).index) + ['Taiwan*']
-            countries_to_show = per_mil[countries_to_show].loc[last_date].sort_values(ascending=False).index
-            last_date = last_date.strftime('%d %b %Y')
-            cfr = df[countries_to_show]
+    df = pd.merge(df, population_data, on=['Country'], how='left')
+    df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
 
-        n_days = 7
-        df = df[countries_to_show]
-        delta = df.diff(n_days).fillna(0)
-        daily = delta / n_days
-        per_mil = per_mil[countries_to_show]
-        dpm = per_mil.diff(n_days).fillna(0) / n_days
+    df = df.set_index(['Country', 'Date'])
+    df['CFR'] = df.Deaths / df.Cases
+    df['CPM'] = 10 ** 6 * df.Cases / df.Population
+    df['DPM'] = 10 ** 6 * df.Deaths / df.Population
+    df['WeeklyCases'] = df.Cases.diff(7)
+    df['WeeklyDeaths'] = df.Deaths.diff(7)
+    df['WeeklyCPM'] = df.CPM.diff(7)
+    df['WeeklyDPM'] = df.DPM.diff(7)
+    df['CRR'] = ((df.WeeklyCases / df.WeeklyCases.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
 
-        daily_label = 'Daily ({} day mean) '.format(n_days)
-        t = title.format('{}', metric, '{}', last_date, retrieved)
+    def clean_ds(ds, z: int = 6):
+        ds[ds < 0] = np.nan
+        x = ds.unstack().transpose()
+        x = x.mask((x - x.mean()).abs() > z * x.std())
+        return x.transpose().stack()
 
-        charts.append(dpm.figure(title=t.format(daily_label, ' per Million'), kind='bar', **params))
-        charts.append(per_mil.figure(title=t.format('', ' per Million'), **params))
-        charts.append(daily.figure(title=t.format(daily_label, ''), kind='bar', **params))
-        charts.append(df.figure(title=t.format('Total ', ''), **params))
+    df.CFR = clean_ds(df.CFR, z=2)
+    df.CRR = clean_ds(df.CRR, z=3)
+    df.WeeklyCases = clean_ds(df.WeeklyCases)
+    df.WeeklyDeaths = clean_ds(df.WeeklyDeaths)
+    df.WeeklyCPM = clean_ds(df.WeeklyCPM)
+    df.WeeklyDPM = clean_ds(df.WeeklyDPM)
 
-        if metric == 'Cases':
-            rr = ((delta / delta.shift(n_days)) ** (1 / n_days)).replace(np.inf, np.nan).fillna(0)
-            cfr = 100 * cfr / df
-            charts.append(rr.figure(title=t.format('Case Reproduction Rate (', ')'), **params))
-            charts.append(cfr.figure(title=title.format('Case Fatality Rate', '', '', last_date, retrieved), **params))
+    sorted_countries_to_show = df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index
+    title = 'Wuhan Corona Virus Pandemic {} as on {} <i>Retrieved {}</i>'.format(
+        '{}', last_date.strftime('%d %b %Y'), datetime.now().strftime('%d %b %Y %H:%M'))
 
-    return html.Div([dcc.Graph(figure=chart.update_layout(hovermode='x', height=800)) for chart in reversed(charts)])
+    def plot_ds(ds, label: str, **kwargs):
+        return ds.unstack().transpose()[sorted_countries_to_show].figure(
+            title=title.format(label),
+            theme='solar',
+            colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616',
+                    '#479B55', '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5',
+                    '#FF0092', '#22FFA7', '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72'],
+            **kwargs)
+
+    charts = [
+        plot_ds(df.CFR, 'Case Fatality Rate').update_layout(yaxis={'tickformat': ',.0%'}),
+        plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)'),
+
+        plot_ds(df.Cases, 'Total Cases'),
+        plot_ds(df.WeeklyCases, 'Weekly Cases (last 7 days)', kind='bar'),
+        plot_ds(df.CPM, 'Cases Per Million'),
+        plot_ds(df.WeeklyCPM, 'Weekly Cases Per Million (last 7 days)'),
+
+        plot_ds(df.Deaths, 'Total Deaths'),
+        plot_ds(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', kind='bar'),
+        plot_ds(df.DPM, 'Deaths Per Million'),
+        plot_ds(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)'),
+    ]
+
+    return html.Div([dcc.Graph(figure=c.update_layout(height=800, hovermode='x')) for c in charts])
 
 
 # Layout Charts, refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
@@ -118,7 +138,7 @@ def create_layout(population_data):
                 update_at = (1 + int(time()) // 43200) * 43200
             while (diff := update_at - time()) > 0:
                 print(datetime.now(), '{}s to update at {}'.format(diff, datetime.fromtimestamp(update_at)), flush=True)
-                sleep(diff / 2)
+                sleep(diff / 4)
 
     Thread(target=update_cache, daemon=True).start()
 
