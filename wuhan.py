@@ -106,7 +106,7 @@ def plot_covid19_data(population_data):
 
     charts = [
         plot_ds(df.CFR, 'Case Fatality Rate').update_layout(yaxis={'tickformat': ',.0%'}),
-        plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)'),
+        plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True),
 
         plot_ds(df.Cases, 'Total Cases'),
         plot_ds(df.WeeklyCases, 'Weekly Cases (last 7 days)', kind='bar'),
@@ -119,7 +119,7 @@ def plot_covid19_data(population_data):
         plot_ds(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)'),
     ]
 
-    return html.Div([dcc.Graph(figure=c.update_layout(height=800, hovermode='x')) for c in charts])
+    return html.Div([dcc.Graph(figure=chart.update_layout(height=800, hovermode='x')) for chart in charts])
 
 
 # Cache Charts, refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
