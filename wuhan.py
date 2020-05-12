@@ -63,7 +63,6 @@ def plot_covid19_data(population_data):
     df = pd.merge(df, get_covid19_data('deaths'), on=['Country', 'Date'], how='inner')
     df = pd.concat([df, df.groupby('Date').sum().reset_index('Date').sort_values('Date')]).fillna('World')
     last_date = max(df.Date)
-    df = df[df.Country.isin(list(df[df.Date == last_date].nlargest(n=31, columns='Deaths').Country) + ['Taiwan*'])]
 
     df = pd.merge(df, population_data, on=['Country'], how='left')
     df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
@@ -91,58 +90,72 @@ def plot_covid19_data(population_data):
     df.WeeklyCPM = clean_ds(df.WeeklyCPM)
     df.WeeklyDPM = clean_ds(df.WeeklyDPM)
 
-    sorted_countries_to_show = df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index
-    title = 'Wuhan Corona Virus Pandemic {} as on {} <i>Retrieved {}</i>'.format(
-        '{}', last_date.strftime('%d %b %Y'), datetime.now().strftime('%d %b %Y %H:%M'))
+    countries_by_deaths = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
+    countries_to_show_in_overview = countries_by_deaths[0:31] + ['Taiwan*']
 
     def plot_ds(ds, label: str, **kwargs):
-        return ds.unstack().transpose()[sorted_countries_to_show].figure(
-            title=title.format(label),
-            theme='solar',
-            colors=['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616',
-                    '#479B55', '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5',
-                    '#FF0092', '#22FFA7', '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72'],
+        return ds.unstack().transpose()[countries_to_show_in_overview].figure(
+            title=label,
+            theme='polar',
             **kwargs)
 
-    charts = [
-        plot_ds(df.CFR, 'Case Fatality Rate').update_layout(yaxis={'tickformat': ',.0%'}),
-        plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True),
+    charts = {'comparative': html.Div([
+        dcc.Graph(figure=chart.update_layout(height=800, hovermode='x', title_x=0.5))
+        for chart in [
+            plot_ds(df.WeeklyCases, 'Weekly Cases (last 7 days)', kind='bar'),
+            plot_ds(df.Cases, 'Total Cases'),
+            plot_ds(df.CPM, 'Cases Per Million'),
+            plot_ds(df.WeeklyCPM, 'Weekly Cases Per Million (last 7 days)'),
 
-        plot_ds(df.Cases, 'Total Cases'),
-        plot_ds(df.WeeklyCases, 'Weekly Cases (last 7 days)', kind='bar'),
-        plot_ds(df.CPM, 'Cases Per Million'),
-        plot_ds(df.WeeklyCPM, 'Weekly Cases Per Million (last 7 days)'),
+            plot_ds(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', kind='bar'),
+            plot_ds(df.Deaths, 'Total Deaths'),
+            plot_ds(df.DPM, 'Deaths Per Million'),
+            plot_ds(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)'),
 
-        plot_ds(df.Deaths, 'Total Deaths'),
-        plot_ds(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', kind='bar'),
-        plot_ds(df.DPM, 'Deaths Per Million'),
-        plot_ds(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)'),
-    ]
+            plot_ds(df.CFR, 'Case Fatality Rate').update_layout(yaxis={'tickformat': ',.0%'}),
+            plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True), ]])}
 
-    return html.Div([dcc.Graph(figure=chart.update_layout(height=800, hovermode='x')) for chart in charts])
+    df = df[['Cases', 'WeeklyCases', 'Deaths', 'WeeklyDeaths', 'CFR', 'CRR']]
+    df.columns = ['Cases', 'Weekly Cases (last 7 days)',
+                  'Deaths', 'Weekly Deaths (last 7 days)',
+                  'Case Fatality Rate', 'Case Reproduction Rate']
+
+    for region in countries_by_deaths:
+        charts[region] = html.Div(dcc.Graph(figure=df.loc[region].figure(
+            title=region,
+            theme='polar',
+            subplots=True,
+            shape=(3, 2),
+            shared_xaxes=True,
+            subplot_titles=True,
+            colors=['#000000'],
+            legend=False).update_layout(height=750, hovermode='x', title_x=0.5)))
+
+    return last_date.strftime('%d %b %Y'), charts
 
 
-# Cache Charts, refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
-def create_layout(population_data):
-    cache = {'charts': html.Div('Retrieving Data...')}
+# Cache Charts
+cache = {'comparative': html.Div(['Retrieving Data ', html.A('...', href='/')])}
+report_date = [datetime.now().strftime('%d %b %Y')]
 
-    def update_cache():
-        refresh = True
-        while refresh:
-            try:
-                cache['charts'] = plot_covid19_data(population_data)
-            except Exception as e:
-                print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                update_at = (1 + int(time()) // 3600) * 3600
-            else:
-                update_at = (1 + int(time()) // 43200) * 43200
-                refresh = __name__ == '__main__'
-            while (diff := update_at - int(time())) > 0:
-                sleep(diff / 4)
 
-    Thread(target=update_cache, daemon=True).start()
-
-    return lambda: cache['charts']
+# Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
+def update_cache(population_data):
+    while True:
+        try:
+            rd, charts = plot_covid19_data(population_data)
+            report_date.append(rd)
+            for k, v in charts.items():
+                cache[k] = v
+            print(datetime.now(), 'Cache updated', flush=True)
+        except Exception as e:
+            print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
+            update_at = (1 + int(time()) // 3600) * 3600
+        else:
+            update_at = (1 + int(time()) // 43200) * 43200
+        while (diff := update_at - int(time())) > 0:
+            print(datetime.now(), 'Next cache update in {} seconds'.format(diff), flush=True)
+            sleep(diff / 10)
 
 
 # Cufflinks
@@ -150,10 +163,19 @@ cf.go_offline()
 # Dash
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-app.title = 'Wuhan Corona Virus Pandemic Stats'
-app.layout = create_layout(population_data=get_population())
-# Flask
-server = app.server
+app.title = title = 'Wuhan Corona Virus Pandemic Stats {}'.format(report_date[-1])
+app.layout = lambda: html.Div([
+    html.Div(html.H6(title)),
+    dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in sorted(cache.keys())], value='comparative'),
+    html.Div(id='page-content')
+])
+
+
+@app.callback(dash.dependencies.Output('page-content', 'children'), [dash.dependencies.Input('region', 'value')])
+def update_output(value):
+    return cache.get(value)
+
 
 if __name__ == '__main__':
+    Thread(target=update_cache, kwargs={'population_data': get_population()}, daemon=True).start()
     app.run_server(host='0.0.0.0')
