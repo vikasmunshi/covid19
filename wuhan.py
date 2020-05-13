@@ -121,7 +121,8 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
             theme='polar', subplots=True, shape=(3, 2), shared_xaxes=True, subplot_titles=True,
             colors=['#000000'], legend=False).update_layout(height=780, hovermode='x', title_x=0.5)))
 
-    title = 'Wuhan Corona Virus Pandemic Stats {}'.format(last_date.strftime('%d %b %Y'))
+    title = 'Wuhan Corona Virus Pandemic Stats {} (retrieved {})'.format(last_date.strftime('%d %b %Y'),
+                                                                         datetime.now().strftime('%d %b %Y %H:%M'))
     charts['layout'] = layout(title=title, keys=['Overview'] + regions_sorted_by_deaths,
                               show_keys=countries_to_show_in_overview)
     return charts
