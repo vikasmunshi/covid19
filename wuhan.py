@@ -118,13 +118,13 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
 
     df.CFR *= 100
     regional_population = {row['Country']: int(row['Population']) for row in population.dropna().to_dict('records')}
-    regional_columns = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CRR', 'CFR']
+    regional_columns = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CFR', 'DPM', ]
     for region in regions_sorted_by_deaths:
         charts[region] = html.Div(dcc.Graph(figure=df.loc[region][regional_columns].figure(
             theme='polar', title='{} ({:,} million people)'.format(region, regional_population[region] // 10 ** 6),
-            subplots=True, shape=(3, 2), legend=False, colors=['#0000FF', '#FF0000'] * 3,
+            subplots=True, shape=(3, 2), legend=False, colors=['#0000FF', '#FF0000'] * 2 + ['#0000FF', '#0000FF'],
             subplot_titles=['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
-                            'Case Reproduction Rate', 'Case Fatality Rate (%)'],
+                            'Case Fatality Rate (%)', 'Deaths per Million', ]
         ).update_layout(height=780, title_x=0.5)))
 
     return charts
@@ -139,25 +139,29 @@ def layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None)
 
 
 # Cache Charts
-cache = {'Loading...': html.Div(['Retrieving Data ... ', html.A('refresh', href='/')]),
-         'layout': layout(title='Wuhan Corona Virus Pandemic Stats', keys=['Loading...'])}
+cached_charts = {'Loading...': html.Div(['Retrieving Data ... ', html.A('refresh', href='/')]),
+                 'layout': layout(title='Wuhan Corona Virus Pandemic Stats', keys=['Loading...'])}
 
 
 # Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
-def update_cache(population: pd.DataFrame):
-    while True:
-        try:
-            for k, v in plot_covid19_data(population).items():
-                cache[k] = v
-            print(datetime.now(), 'Cache updated', flush=True)
-        except Exception as e:
-            print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-            update_at = (1 + int(time()) // 3600) * 3600
-        else:
-            update_at = (1 + int(time()) // 43200) * 43200
-        while (diff := update_at - int(time())) > 0:
-            print(datetime.now(), 'Next cache update in {} seconds'.format(diff), flush=True)
-            sleep(min(diff / 2, 3600))
+def set_up_update_cache_in_background() -> Thread:
+    def update_cache():
+        population = get_population()
+        while True:
+            try:
+                for k, v in plot_covid19_data(population).items():
+                    cached_charts[k] = v
+            except Exception as e:
+                print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
+                update_at = (1 + int(time()) // 3600) * 3600
+            else:
+                update_at = (1 + int(time()) // 43200) * 43200
+            while (diff := update_at - int(time())) > 0:
+                sleep(min(diff / 2, 3600))
+
+    thread = Thread(target=update_cache, daemon=True)
+    thread.start()
+    return thread
 
 
 # Cufflinks
@@ -166,14 +170,19 @@ cf.go_offline()
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.title = 'Wuhan Corona Virus Pandemic Stats'
-app.layout = lambda: cache['layout']
+app.layout = lambda: cached_charts['layout']
 
 
 @app.callback(dash.dependencies.Output('page-content', 'children'), [dash.dependencies.Input('region', 'value')])
 def update_output(value):
-    return [cache[v] for v in value] if isinstance(value, list) else cache[value]
+    return [cached_charts[v] for v in value] if isinstance(value, list) else cached_charts[value]
 
 
 if __name__ == '__main__':
-    Thread(target=update_cache, kwargs={'population': get_population()}, daemon=True).start()
+    from sys import argv
+
+    if 'dev' in argv:
+        __import__('requests_cache').install_cache('cache')
+
+    set_up_update_cache_in_background()
     app.run_server(host='0.0.0.0')
