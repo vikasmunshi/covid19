@@ -120,9 +120,12 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
     regional_population = {row['Country']: int(row['Population']) for row in population.dropna().to_dict('records')}
     regional_columns = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CFR', 'DPM', ]
     for region in regions_sorted_by_deaths:
+        title = '<b>{}</b><BR>{:,} million people {:,} cases {:,} deaths {:.2f} deaths per million<BR>'.format(
+            region, regional_population[region] // 10 ** 6,
+            *list(df.loc[region].loc[last_date][['Cases', 'Deaths', 'DPM']]))
         charts[region] = html.Div(dcc.Graph(figure=df.loc[region][regional_columns].figure(
-            theme='polar', title='{} ({:,} million people)'.format(region, regional_population[region] // 10 ** 6),
-            subplots=True, shape=(3, 2), legend=False, colors=['#0000FF', '#FF0000'] * 2 + ['#FF00FF', '#FF0000'],
+            theme='polar', title=title, subplots=True, shape=(3, 2), legend=False,
+            colors=['#0000FF', '#FF0000'] * 2 + ['#FF00FF', '#FF0000'],
             subplot_titles=['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
                             'Case Fatality Rate (%)', 'Deaths per Million', ]
         ).update_layout(height=780, title_x=0.5)))
