@@ -119,10 +119,10 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
         p, c, d, dpm = df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]
         title = """
         <b>{}</b><BR>
-        <b>{}</b> people; 
-        <b>{}</b> cases; 
-        <b>{}</b> deaths; 
-        <b>{:,.2f}</b> deaths per million; 
+        <b>{}</b> people 
+        <b>{}</b> cases 
+        <b>{}</b> deaths 
+        <b>{:,.2f}</b> deaths per million 
         as on <b>{}</b><BR>
         """.format(region, format_num(p), format_num(c), format_num(d), dpm, last_date.strftime('%d %b %Y'))
 
