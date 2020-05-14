@@ -122,7 +122,7 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
     for region in regions_sorted_by_deaths:
         charts[region] = html.Div(dcc.Graph(figure=df.loc[region][regional_columns].figure(
             theme='polar', title='{} ({:,} million people)'.format(region, regional_population[region] // 10 ** 6),
-            subplots=True, shape=(3, 2), legend=False, colors=['#0000FF', '#FF0000'] * 2 + ['#0000FF', '#0000FF'],
+            subplots=True, shape=(3, 2), legend=False, colors=['#0000FF', '#FF0000'] * 2 + ['#FF00FF', '#FF0000'],
             subplot_titles=['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
                             'Case Fatality Rate (%)', 'Deaths per Million', ]
         ).update_layout(height=780, title_x=0.5)))
@@ -179,10 +179,8 @@ def update_output(value):
 
 
 if __name__ == '__main__':
-    from sys import argv
-
-    if 'dev' in argv:
-        __import__('requests_cache').install_cache('cache')
+    if 'dev' in __import__('sys').argv:
+        __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
 
     set_up_update_cache_in_background()
     app.run_server(host='0.0.0.0')
