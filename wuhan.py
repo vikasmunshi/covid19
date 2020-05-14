@@ -110,29 +110,33 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
             plot_dataseries(df.CFR, 'Case Fatality Rate').update_layout(yaxis={'tickformat': ',.0%'}),
             plot_dataseries(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True), ]])}
 
-    df = df[['Cases', 'WeeklyCases', 'Deaths', 'WeeklyDeaths', 'CFR', 'CRR']]
-    df.columns = ['Cases', 'Weekly Cases (last 7 days)', 'Deaths', 'Weekly Deaths (last 7 days)',
-                  'Case Fatality Rate', 'Case Reproduction Rate']
+    df = df[['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CRR', 'CFR']]
+    df.CFR *= 100
+    df.columns = ['Cases', 'Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
+                  'Case Reproduction Rate', 'Case Fatality Rate (%)']
     regional_population = {row['Country']: int(row['Population']) for row in population.dropna().to_dict('records')}
 
     for region in regions_sorted_by_deaths:
         charts[region] = html.Div(dcc.Graph(figure=df.loc[region].figure(
-            title='{} ({:,} million people)'.format(region, regional_population[region] // 10 ** 6),
-            theme='polar', subplots=True, shape=(3, 2), shared_xaxes=True, subplot_titles=True,
-            colors=['#000000'], legend=False).update_layout(height=780, hovermode='x', title_x=0.5)))
+            theme='polar', title='{} ({:,} million people)'.format(region, regional_population[region] // 10 ** 6),
+            subplots=True, shape=(3, 2), subplot_titles=True, legend=False,
+            colors=['#0000FF', '#FF0000', '#0000FF', '#FF0000', '#FF00FF', '#FF00FF'],
+        ).update_layout(height=780, title_x=0.5)))
 
-    title = 'Wuhan Corona Virus Pandemic Stats {} (retrieved {})'.format(last_date.strftime('%d %b %Y'),
-                                                                         datetime.now().strftime('%d %b %Y %H:%M'))
-    charts['layout'] = layout(title=title, keys=['Overview'] + regions_sorted_by_deaths,
-                              show_keys=countries_to_show_in_overview)
+    charts['layout'] = layout(
+        title='Wuhan Corona Virus Pandemic Stats {} (retrieved {})'.format(
+            last_date.strftime('%d %b %Y'), datetime.now().strftime('%d %b %Y %H:%M')),
+        keys=['Overview'] + regions_sorted_by_deaths,
+        show_keys=countries_to_show_in_overview)
+
     return charts
 
 
-def layout(title: str, keys: list, show_keys: list = ()) -> html.Div:
+def layout(title: str, keys: list, show_keys: list = None) -> html.Div:
     return html.Div([
         html.Div(html.H6(title)),
         dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys],
-                     value=keys[0] if not show_keys else show_keys, multi=bool(show_keys)),
+                     value=keys[0] if show_keys is None else show_keys, multi=bool(show_keys)),
         html.Div(id='page-content')])
 
 
@@ -155,7 +159,7 @@ def update_cache(population: pd.DataFrame):
             update_at = (1 + int(time()) // 43200) * 43200
         while (diff := update_at - int(time())) > 0:
             print(datetime.now(), 'Next cache update in {} seconds'.format(diff), flush=True)
-            sleep(diff / 10)
+            sleep(min(diff / 2, 3600))
 
 
 # Cufflinks
