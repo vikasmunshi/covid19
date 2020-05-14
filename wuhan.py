@@ -33,10 +33,10 @@ def get_population() -> pd.DataFrame:
         ['Kyrgyz Republic', 'Kyrgyzstan', None], ['Lao PDR', 'Laos', None], ['Myanmar', 'Burma', None],
         ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
         ['Syrian Arab Republic', 'Syria', None], ['United States', 'US', None], ['Venezuela, RB', 'Venezuela', None],
-        ['Yemen, Rep.', 'Yemen', None], ['Taiwan*', None, ['TWN', 23780452]]
+        ['Yemen, Rep.', 'Yemen', None], ['Taiwan', None, ['TWN', 23780452]]
     ]:
         if name_change:
-            population['Country'][population.Country == country] = name_change
+            population.Country = population.Country.str.replace(pat=country, repl=name_change, regex=False)
         if missing_data:
             population.loc[len(population)] = [country] + missing_data
     return population
@@ -54,6 +54,7 @@ def get_covid19_data(label: str) -> pd.DataFrame:
     df.Value = df.Value.astype(int)
     df = df.groupby(['Country/Region', 'Date']).sum().reset_index()
     df.columns = ['Country', 'Date', label.title()]
+    df.Country = df.Country.str.replace(pat='Taiwan*', repl='Taiwan', regex=False)
     return df.sort_values(by=['Country', 'Date'])
 
 
@@ -89,52 +90,49 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
 
     last_date = max(df.index.get_level_values(level=1))
     regions_sorted_by_deaths = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
-    countries_to_show_in_overview = regions_sorted_by_deaths[0:31] + ['Taiwan*']
+    countries_in_overview = regions_sorted_by_deaths[0:31] + ['Taiwan']
 
-    def plot_dataseries(ds: pd.Series, label: str, **kwargs):
-        return ds.unstack().transpose()[countries_to_show_in_overview].figure(title=label, theme='polar', **kwargs)
+    def plot_ds(ds: pd.Series, label: str, **kwargs):
+        return ds.unstack().transpose()[countries_in_overview].figure(title=label, **kwargs)
 
-    charts = {'Overview': html.Div([
-        dcc.Graph(figure=chart.update_layout(height=800, hovermode='x', title_x=0.5))
-        for chart in [
-            plot_dataseries(df.WeeklyCases, 'Weekly Cases (last 7 days)', kind='bar'),
-            plot_dataseries(df.Cases, 'Total Cases'),
-            plot_dataseries(df.CPM, 'Cases Per Million'),
-            plot_dataseries(df.WeeklyCPM, 'Weekly Cases Per Million (last 7 days)'),
+    style_line = {'theme': 'polar',
+                  'colors': ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+                             '#bcbd22', '#17becf'] * 4, }
+    style_bar = {'kind': 'bar', 'theme': 'solar', 'colors': style_line['colors'], }
 
-            plot_dataseries(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', kind='bar'),
-            plot_dataseries(df.Deaths, 'Total Deaths'),
-            plot_dataseries(df.DPM, 'Deaths Per Million'),
-            plot_dataseries(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)'),
+    charts = {
+        'layout': layout(title='Wuhan Corona Virus Pandemic stats', keys=['Comparision'] + regions_sorted_by_deaths,
+                         date_stamp=last_date.strftime('%d %b %Y'), show_keys=countries_in_overview),
+        'Comparision': html.Div([
+            dcc.Graph(figure=chart.update_layout(height=800, title_x=0.5, legend_orientation='h'))
+            for chart in [plot_ds(df.Cases, 'Total Cases', **style_line),
+                          plot_ds(df.CPM, 'Cases Per Million', **style_line),
+                          plot_ds(df.WeeklyCPM, 'Weekly Cases Per Million (last 7 days)', **style_bar),
+                          plot_ds(df.Deaths, 'Total Deaths', **style_line),
+                          plot_ds(df.DPM, 'Deaths Per Million', **style_line),
+                          plot_ds(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)', **style_bar),
+                          plot_ds(df.CFR, 'Case Fatality Rate', **style_line).update_layout(
+                              yaxis={'tickformat': ',.0%'}),
+                          plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True,
+                                  **style_line), ]])}
 
-            plot_dataseries(df.CFR, 'Case Fatality Rate').update_layout(yaxis={'tickformat': ',.0%'}),
-            plot_dataseries(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True), ]])}
-
-    df = df[['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CRR', 'CFR']]
     df.CFR *= 100
-    df.columns = ['Cases', 'Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
-                  'Case Reproduction Rate', 'Case Fatality Rate (%)']
     regional_population = {row['Country']: int(row['Population']) for row in population.dropna().to_dict('records')}
-
+    regional_columns = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CRR', 'CFR']
     for region in regions_sorted_by_deaths:
-        charts[region] = html.Div(dcc.Graph(figure=df.loc[region].figure(
+        charts[region] = html.Div(dcc.Graph(figure=df.loc[region][regional_columns].figure(
             theme='polar', title='{} ({:,} million people)'.format(region, regional_population[region] // 10 ** 6),
-            subplots=True, shape=(3, 2), subplot_titles=True, legend=False,
-            colors=['#0000FF', '#FF0000', '#0000FF', '#FF0000', '#FF00FF', '#FF00FF'],
+            subplots=True, shape=(3, 2), legend=False, colors=['#0000FF', '#FF0000'] * 3,
+            subplot_titles=['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
+                            'Case Reproduction Rate', 'Case Fatality Rate (%)'],
         ).update_layout(height=780, title_x=0.5)))
-
-    charts['layout'] = layout(
-        title='Wuhan Corona Virus Pandemic Stats {} (retrieved {})'.format(
-            last_date.strftime('%d %b %Y'), datetime.now().strftime('%d %b %Y %H:%M')),
-        keys=['Overview'] + regions_sorted_by_deaths,
-        show_keys=countries_to_show_in_overview)
 
     return charts
 
 
-def layout(title: str, keys: list, show_keys: list = None) -> html.Div:
+def layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None) -> html.Div:
     return html.Div([
-        html.Div(html.H6(title)),
+        html.Div(html.H6('{} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M')))),
         dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys],
                      value=keys[0] if show_keys is None else show_keys, multi=bool(show_keys)),
         html.Div(id='page-content')])
