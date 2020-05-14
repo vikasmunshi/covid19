@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 """ Visualize Wuhan Corona Virus Stats """
+import math
 from datetime import datetime
 from io import StringIO
 from threading import Thread
@@ -13,6 +14,14 @@ import dash_html_components as html
 import numpy as np
 import pandas as pd
 import requests
+
+__all__ = ['app', 'server', 'update_cache_in_background']
+
+
+def format_num(n: int) -> str:
+    suffixes = ['', ' Thousand', ' Million', ' Billion']
+    i = max(0, min(3, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
+    return '{:,.3f}{}'.format(n / 10 ** (3 * i), suffixes[i])
 
 
 # retrieve data from URL and return Pandas DataFrame
@@ -64,29 +73,15 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
     df = pd.merge(df, get_covid19_data('deaths'), on=['Country', 'Date'], how='inner')
     df = pd.concat([df, df.groupby('Date').sum().reset_index('Date').sort_values('Date')]).fillna('World')
     df = pd.merge(df, population, on=['Country'], how='left').dropna()
-    df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
+    df = df[['Country', 'Date', 'Population', 'Cases', 'Deaths']]
     df = df.set_index(['Country', 'Date'])
-    df['CFR'] = df.Deaths / df.Cases
-    df['CPM'] = 10 ** 6 * df.Cases / df.Population
-    df['DPM'] = 10 ** 6 * df.Deaths / df.Population
     df['WeeklyCases'] = df.Cases.diff(7)
     df['WeeklyDeaths'] = df.Deaths.diff(7)
-    df['WeeklyCPM'] = df.CPM.diff(7)
-    df['WeeklyDPM'] = df.DPM.diff(7)
+    df[df < 0] = 0
+    df['CPM'] = 10 ** 6 * df.Cases / df.Population
+    df['DPM'] = 10 ** 6 * df.Deaths / df.Population
+    df['CFR'] = 100 * df.Deaths / df.Cases
     df['CRR'] = ((df.WeeklyCases / df.WeeklyCases.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
-
-    def clean_dataseries(ds, z: int = 6) -> pd.Series:
-        ds[ds < 0] = np.nan
-        x = ds.unstack().transpose()
-        x = x.mask((x - x.mean()).abs() > z * x.std())
-        return x.transpose().stack()
-
-    df.CFR = clean_dataseries(df.CFR, z=2)
-    df.CRR = clean_dataseries(df.CRR, z=3)
-    df.WeeklyCases = clean_dataseries(df.WeeklyCases)
-    df.WeeklyDeaths = clean_dataseries(df.WeeklyDeaths)
-    df.WeeklyCPM = clean_dataseries(df.WeeklyCPM)
-    df.WeeklyDPM = clean_dataseries(df.WeeklyDPM)
 
     last_date = max(df.index.get_level_values(level=1))
     regions_sorted_by_deaths = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
@@ -104,31 +99,38 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
         'layout': layout(title='Wuhan Corona Virus Pandemic stats', keys=['Comparision'] + regions_sorted_by_deaths,
                          date_stamp=last_date.strftime('%d %b %Y'), show_keys=countries_in_overview),
         'Comparision': html.Div([
-            dcc.Graph(figure=chart.update_layout(height=800, title_x=0.5, legend_orientation='h'))
-            for chart in [plot_ds(df.Cases, 'Total Cases', **style_line),
-                          plot_ds(df.CPM, 'Cases Per Million', **style_line),
-                          plot_ds(df.WeeklyCPM, 'Weekly Cases Per Million (last 7 days)', **style_bar),
-                          plot_ds(df.Deaths, 'Total Deaths', **style_line),
-                          plot_ds(df.DPM, 'Deaths Per Million', **style_line),
-                          plot_ds(df.WeeklyDPM, 'Weekly Deaths Per Million (last 7 days)', **style_bar),
-                          plot_ds(df.CFR, 'Case Fatality Rate', **style_line).update_layout(
-                              yaxis={'tickformat': ',.0%'}),
-                          plot_ds(df.CRR, 'Case Reproduction Rate (last 7 day average)', logy=True,
-                                  **style_line), ]])}
+            dcc.Graph(figure=chart.update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
+            for chart in [
+                plot_ds(df.Cases, 'Total Cases', **style_line),
+                plot_ds(df.CPM, 'Cases Per Million', **style_line),
+                plot_ds(df.WeeklyCases, 'Weekly Cases (last 7 days)', **style_bar),
+                plot_ds(df.Deaths, 'Total Deaths', **style_line),
+                plot_ds(df.DPM, 'Deaths Per Million', **style_line),
+                plot_ds(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', **style_bar),
+                plot_ds(df.CFR, 'Case Fatality Rate (%)', **style_line),
+                plot_ds(df.CRR, 'Case Reproduction Rate (last 7 days average)', logy=True, **style_line), ]])}
 
-    df.CFR *= 100
-    regional_population = {row['Country']: int(row['Population']) for row in population.dropna().to_dict('records')}
-    regional_columns = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CFR', 'DPM', ]
+    columns_in_regional_chart = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CRR', 'CFR']
+    column_titles = ['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
+                     'Case Reproduction Rate (last 7 days average)', 'Case Fatality Rate (%)']
+    column_colors = ['#0000FF', '#FF0000', '#0000FF', '#FF0000', '#FF00FF', '#FF0000']
+
     for region in regions_sorted_by_deaths:
-        title = '<b>{}</b><BR>{:,} million people {:,} cases {:,} deaths {:.2f} deaths per million<BR>'.format(
-            region, regional_population[region] // 10 ** 6,
-            *list(df.loc[region].loc[last_date][['Cases', 'Deaths', 'DPM']]))
-        charts[region] = html.Div(dcc.Graph(figure=df.loc[region][regional_columns].figure(
-            theme='polar', title=title, subplots=True, shape=(3, 2), legend=False,
-            colors=['#0000FF', '#FF0000'] * 2 + ['#FF00FF', '#FF0000'],
-            subplot_titles=['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
-                            'Case Fatality Rate (%)', 'Deaths per Million', ]
-        ).update_layout(height=780, title_x=0.5)))
+        p, c, d, dpm = df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]
+        title = """
+        <b>{}</b><BR>
+        <b>{}</b> people; 
+        <b>{}</b> cases; 
+        <b>{}</b> deaths; 
+        <b>{:,.2f}</b> deaths per million; 
+        as on <b>{}</b><BR>
+        """.format(region, format_num(p), format_num(c), format_num(d), dpm, last_date.strftime('%d %b %Y'))
+
+        charts[region] = html.Div(dcc.Graph(
+            figure=df.loc[region][columns_in_regional_chart].figure(
+                theme='polar', title=title, subplots=True, shape=(3, 2), legend=False,
+                colors=column_colors, subplot_titles=column_titles
+            ).update_layout(height=780, title_x=0.5)))
 
     return charts
 
@@ -147,13 +149,14 @@ cached_charts = {'Loading...': html.Div(['Retrieving Data ... ', html.A('refresh
 
 
 # Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
-def set_up_update_cache_in_background() -> Thread:
+def update_cache_in_background() -> Thread:
     def update_cache():
         population = get_population()
         while True:
             try:
                 for k, v in plot_covid19_data(population).items():
                     cached_charts[k] = v
+                print(datetime.now(), 'Cache Updated', flush=True)
             except Exception as e:
                 print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
                 update_at = (1 + int(time()) // 3600) * 3600
@@ -170,10 +173,11 @@ def set_up_update_cache_in_background() -> Thread:
 # Cufflinks
 cf.go_offline()
 # Dash
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(__name__, external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
 app.title = 'Wuhan Corona Virus Pandemic Stats'
 app.layout = lambda: cached_charts['layout']
+# Flask
+server = app.server
 
 
 @app.callback(dash.dependencies.Output('page-content', 'children'), [dash.dependencies.Input('region', 'value')])
@@ -185,5 +189,5 @@ if __name__ == '__main__':
     if 'dev' in __import__('sys').argv:
         __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
 
-    set_up_update_cache_in_background()
+    update_cache_in_background()
     app.run_server(host='0.0.0.0')
