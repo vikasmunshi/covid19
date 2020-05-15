@@ -1,9 +1,9 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 """ Visualize Wuhan Corona Virus Stats """
-import math
 from datetime import datetime
 from io import StringIO
+from math import floor, log10
 from threading import Thread
 from time import sleep, time
 
@@ -20,7 +20,7 @@ __all__ = ['app', 'server', 'update_cache_in_background']
 
 def format_num(n: int) -> str:
     suffixes = ['', ' Thousand', ' Million', ' Billion']
-    i = max(0, min(3, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
+    i = max(0, min(3, int(floor(0 if n == 0 else log10(abs(n)) / 3))))
     return '{:,.3f}{}'.format(n / 10 ** (3 * i), suffixes[i])
 
 
@@ -137,14 +137,15 @@ def plot_covid19_data(population: pd.DataFrame) -> {str: html.Div}:
 
 def layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None) -> html.Div:
     return html.Div([
-        html.Div(html.H6('{} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M')))),
+        html.H6([html.A(u'\u2299', href='/', style={'text-decoration': 'none'}),
+                 ' {} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M'))]),
         dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys],
                      value=keys[0] if show_keys is None else show_keys, multi=bool(show_keys)),
         html.Div(id='page-content')])
 
 
 # Cache Charts
-cached_charts = {'Loading...': html.Div(['Retrieving Data ... ', html.A('refresh', href='/')]),
+cached_charts = {'Loading...': html.Div('Retrieving Data ... '),
                  'layout': layout(title='Wuhan Corona Virus Pandemic Stats', keys=['Loading...'])}
 
 
@@ -159,11 +160,12 @@ def update_cache_in_background() -> Thread:
                 print(datetime.now(), 'Cache Updated', flush=True)
             except Exception as e:
                 print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                update_at = (1 + int(time()) // 3600) * 3600
+                at = (1 + int(time()) // 3600) * 3600
             else:
-                update_at = (1 + int(time()) // 43200) * 43200
-            while (diff := update_at - int(time())) > 0:
-                sleep(min(diff / 2, 3600))
+                at = (1 + int(time()) // 43200) * 43200
+            while (wait := at - int(time())) > 0:
+                print(datetime.now(), 'Next Cache Update at {}'.format(datetime.utcfromtimestamp(at)), flush=True)
+                sleep(min(wait / 2, 3000))
 
     thread = Thread(target=update_cache, daemon=True)
     thread.start()
