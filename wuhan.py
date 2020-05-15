@@ -58,8 +58,9 @@ URLS = {
 
 def layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None) -> html.Div:
     return html.Div([
-        html.H6([html.A(u'\u2299', href='/', style={'text-decoration': 'none'}),
-                 ' {} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M'))]),
+        html.H6([
+            html.A(u'\u2299', href='/', style={'text-decoration': 'none'}),
+            ' {} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M'))]),
         dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys],
                      value=keys[0] if show_keys is None else show_keys, multi=bool(show_keys)),
         html.Div(id='page-content')])
