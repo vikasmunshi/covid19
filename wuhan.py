@@ -4,7 +4,7 @@
 from datetime import datetime
 from io import StringIO
 from math import floor, log10
-from threading import Thread
+from threading import Lock, Thread
 from time import sleep, time
 
 import cufflinks as cf
@@ -15,8 +15,11 @@ import numpy as np
 import pandas as pd
 import requests
 
-__all__ = ['app', 'server', 'update_cache_in_background']
-__kill_pill__ = 'upYneWyw7mLxt32kDFbn9ac6xfEcEtTZm5kCnbKpFt65E4CHgrnTLWaC'
+__all__ = ['app', 'server']
+# noinspection SpellCheckingInspection
+__auth__ = 'xdxmMMckzFBOSHxtdkOSJlZFeQGjBDpEFqrZMoSPsEZwMXyJQFsuWiCHHMhazKvT'
+__kill__ = '/kill/' + __auth__
+__restart__ = '/restart/' + __auth__
 
 # noinspection SpellCheckingInspection
 URLS = {
@@ -57,18 +60,18 @@ URLS = {
 }
 
 
-def layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None) -> html.Div:
+def create_layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None) -> html.Div:
     return html.Div([
-        html.H6([
-            html.A(u'\u2299', href='/', style={'text-decoration': 'none'}),
-            ' {} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M'))]),
+        html.H6(['{} {} (retrieved {})'.format(title, date_stamp, datetime.now().strftime('%d %b %H:%M')),
+                 html.A(u' \u229B', title='Reload Page', href='/', style={'text-decoration': 'none'})]),
         dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys],
                      value=keys[0] if show_keys is None else show_keys, multi=bool(show_keys)),
         html.Div(id='page-content')])
 
 
 __cache__ = {'Loading...': html.Div('Retrieving Data ... '),
-             'layout': layout(title='Wuhan Corona Virus Pandemic Stats', keys=['Loading...'])}
+             'layout': create_layout(title='Wuhan Corona Virus Pandemic Stats', keys=['Loading...'])}
+__cache_lock__ = Lock()
 
 
 def format_num(n: int) -> str:
@@ -177,35 +180,6 @@ def plot_regions(df: pd.DataFrame, regions_sorted_by_deaths: list, last_date: da
     return {region: plot_one(region) for region in regions_sorted_by_deaths}
 
 
-# Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
-def update_cache_in_background() -> Thread:
-    def update_cache():
-        population = get_population()
-        while True:
-            try:
-                df = transform_covid19_data(population)
-                last_date = max(df.index.get_level_values(level=1))
-                regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
-                short_list = regions[0:31] + ['Taiwan']
-                __cache__.update(plot_comparision(df, short_list))
-                __cache__.update(plot_regions(df, regions, last_date))
-                __cache__['layout'] = layout(title='Wuhan Corona Virus Pandemic stats', keys=['Comparision'] + regions,
-                                             date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
-                print(datetime.now(), 'Cache Updated', flush=True)
-            except Exception as e:
-                print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                at = (1 + int(time()) // 3600) * 3600
-            else:
-                at = (1 + int(time()) // 43200) * 43200
-            while (wait := at - int(time())) > 0:
-                print(datetime.now(), 'Next Cache Update at {}'.format(datetime.utcfromtimestamp(at)), flush=True)
-                sleep(min(wait / 2, 3000))
-
-    thread = Thread(target=update_cache, daemon=True)
-    thread.start()
-    return thread
-
-
 # Cufflinks
 cf.go_offline()
 # Dash
@@ -221,30 +195,74 @@ def update_output(value):
     return [__cache__[v] for v in value] if isinstance(value, list) else __cache__[value]
 
 
-@server.route('/kill/{}'.format(__kill_pill__))
-def shutdown():
-    __import__('flask').request.environ.get('werkzeug.server.shutdown')()
-    return 'Bye'
+# Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
+@server.before_first_request
+def update_cache_in_background():
+    def update_cache():
+        __cache_lock__.acquire()
+        population = get_population()
+        while __cache_lock__.locked():
+            try:
+                print(datetime.now(), 'Updating Cache', flush=True)
+                df = transform_covid19_data(population)
+                last_date = max(df.index.get_level_values(level=1))
+                regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
+                short_list = regions[0:31] + ['Taiwan']
+                __cache__.update(plot_comparision(df, short_list))
+                __cache__.update(plot_regions(df, regions, last_date))
+                __cache__['layout'] = create_layout(title='Wuhan Corona Virus Pandemic stats',
+                                                    keys=['Comparision'] + regions,
+                                                    date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
+                print(datetime.now(), 'Cache Updated', flush=True)
+            except Exception as e:
+                print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
+                at = (1 + int(time()) // 3600) * 3600
+            else:
+                at = (1 + int(time()) // 43200) * 43200
+            while (wait := at - int(time())) > 0:
+                print(datetime.now(), 'Next Cache Update at {}'.format(datetime.utcfromtimestamp(at)), flush=True)
+                sleep(min(wait / 2, 600))
+        __cache_lock__.release()
+
+    if not __cache_lock__.locked():
+        Thread(target=update_cache, daemon=True).start()
 
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='Plot Wuhan Corona Virus Covid-19 Impact around the World')
+    # noinspection SpellCheckingInspection
     parser.add_argument('-a', '--addr', type=str, help='interface address, default 0.0.0.0 (127.0.0.1 with -d)')
     parser.add_argument('-p', '--port', type=int, help='interface port, default 8050 (8060 with -d)')
     parser.add_argument('-d', '--dev', action='store_true', help='use cached downloads only, default false')
-    parser.add_argument('-s', '--stop', action='store_true', help='send shutdown payload to running server')
+    parser.add_argument('-s', '--stop', action='store_true', help='send kill payload to running server')
+    parser.add_argument('-r', '--restart', action='store_true', help='send restart payload to running server')
     args = parser.parse_args()
 
     host = (args.addr or '127.0.0.1') if args.dev else (args.addr or '0.0.0.0')
     port = (args.port or 8060) if args.dev else (args.port or 8050)
 
     if args.stop:
-        print(requests.get('http://{}:{}/kill/{}'.format(host, port, __kill_pill__)).content.decode())
+        print(requests.get('http://{}:{}{}'.format(host, port, __kill__)).content.decode())
+    elif args.restart:
+        print(requests.get('http://{}:{}{}'.format(host, port, __restart__)).content.decode())
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
+        __start_server__ = True
 
-        update_cache_in_background()
-        app.run_server(host=host, port=port)
+
+        @server.route(__restart__)
+        @server.route(__kill__)
+        def shutdown():
+            global __start_server__
+            from flask import request
+            __start_server__ = request.path == __restart__
+            request.environ.get('werkzeug.server.shutdown')()
+            return 'Restarted' if __start_server__ else 'Killed'
+
+
+        while __start_server__:
+            __start_server__ = False
+            app.run_server(host=host, port=port)
