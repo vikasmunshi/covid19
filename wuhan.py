@@ -144,11 +144,11 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list) -> {str, htm
     return {'Comparision': html.Div([chart for chart in [
         plot_one(df.Cases, 'Total Cases', theme='polar'),
         plot_one(df.CPM, 'Cases Per Million', theme='polar'),
-        plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='polar', kind='bar'),
+        plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.Deaths, 'Total Deaths', theme='polar'),
         plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
-        plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='polar', kind='bar'),
-        plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='polar', kind='bar'),
+        plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
+        plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
         plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
         plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]])}
 
