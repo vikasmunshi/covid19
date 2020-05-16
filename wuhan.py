@@ -16,6 +16,7 @@ import pandas as pd
 import requests
 
 __all__ = ['app', 'server', 'update_cache_in_background']
+__kill_pill__ = 'upYneWyw7mLxt32kDFbn9ac6xfEcEtTZm5kCnbKpFt65E4CHgrnTLWaC'
 
 # noinspection SpellCheckingInspection
 URLS = {
@@ -127,6 +128,7 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df[df < 0] = 0
     df['CPM'] = 10 ** 6 * df.Cases / df.Population
     df['DPM'] = 10 ** 6 * df.Deaths / df.Population
+    df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
     df['CFR'] = 100 * df.Deaths / df.Cases
     df['CRR'] = ((df.WeeklyCases / df.WeeklyCases.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
     return df
@@ -134,52 +136,45 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
 
 # Plot overview with country comparisons
 def plot_comparision(df: pd.DataFrame, countries_in_overview: list) -> {str, html.Div}:
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-              '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-    styles = {'line': {'theme': 'polar', 'colors': colors * 4},
-              'bar': {'kind': 'bar', 'theme': 'solar', 'colors': colors * 4}}
-
     # Plot single metric for select countries
-    def plot_one(ds: pd.Series, label: str, style: str, **kwargs) -> dcc.Graph:
-        return dcc.Graph(figure=ds.unstack().transpose()[countries_in_overview]
-                         .figure(title=label, **styles[style], **kwargs)
+    def plot_one(ds: pd.Series, label: str, **kwargs) -> dcc.Graph:
+        return dcc.Graph(figure=ds.unstack().transpose()[countries_in_overview].figure(title=label, **kwargs)
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
-    return {'Comparision': html.Div([c for c in [
-        plot_one(df.Cases, 'Total Cases', 'line'),
-        plot_one(df.CPM, 'Cases Per Million', 'line'),
-        plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', 'bar'),
-        plot_one(df.Deaths, 'Total Deaths', 'line'),
-        plot_one(df.DPM, 'Deaths Per Million', 'line'),
-        plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', 'bar'),
-        plot_one(df.CFR, 'Case Fatality Rate (%)', 'line'),
-        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', 'line', logy=True)]])}
+    return {'Comparision': html.Div([chart for chart in [
+        plot_one(df.Cases, 'Total Cases', theme='polar'),
+        plot_one(df.CPM, 'Cases Per Million', theme='polar'),
+        plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='polar', kind='bar'),
+        plot_one(df.Deaths, 'Total Deaths', theme='polar'),
+        plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
+        plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='polar', kind='bar'),
+        plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='polar', kind='bar'),
+        plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
+        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]])}
 
 
 # Plot regional charts
-def plot_regional(df: pd.DataFrame, regions_sorted_by_deaths: list, last_date: datetime) -> {str, html.Div}:
-    columns_in_regional_chart = ['Cases', 'Deaths', 'WeeklyCases', 'WeeklyDeaths', 'CRR', 'CFR']
-    column_titles = ['Confirmed Cases', 'Attributed Deaths', 'Cases Last 7 Days', 'Deaths Last 7 Days',
-                     'Case Reproduction Rate (last 7 days average)', 'Case Fatality Rate (%)']
-    column_colors = ['#0000FF', '#FF0000', '#0000FF', '#FF0000', '#FF00FF', '#FF0000']
+def plot_regions(df: pd.DataFrame, regions_sorted_by_deaths: list, last_date: datetime) -> {str, html.Div}:
+    columns_in_regional_chart, column_colors, column_titles = zip(
+        ('Cases', '#0000FF', 'Confirmed Cases'),
+        ('WeeklyCases', '#0000FF', 'Cases Last 7 Days'),
+        ('CRR', '#FF00FF', 'Case Reproduction Rate (last 7 days average)'),
+        ('Deaths', '#FF0000', 'Attributed Deaths'),
+        ('WeeklyDeaths', '#FF0000', 'Deaths Last 7 Days'),
+        ('CFR', '#FF0000', 'Case Fatality Rate (%)'),
+    )
 
-    def plot_one(region: str) -> (str, html.Div):
+    def plot_one(region: str) -> html.Div:
         p, c, d, dpm = df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]
-        title = """
-        <b>{}</b><BR>
-        <b>{}</b> people 
-        <b>{}</b> cases 
-        <b>{}</b> deaths 
-        <b>{:,.2f}</b> deaths per million 
-        as on <b>{}</b><BR>
-        """.format(region, format_num(p), format_num(c), format_num(d), dpm, last_date.strftime('%d %b %Y'))
-        return region, html.Div(dcc.Graph(
-            figure=df.loc[region][columns_in_regional_chart].figure(
-                theme='polar', title=title, subplots=True, shape=(3, 2), legend=False,
+        title = '<b>{}</b><BR><i>{} People, {} Cases, {} Deaths, {:,.2f} Deaths Per Million, As On {}</i><BR>' \
+            .format(region, format_num(p), format_num(c), format_num(d), dpm, last_date.strftime('%d %b %Y'))
+        return html.Div(dcc.Graph(
+            figure=df.loc[region][list(columns_in_regional_chart)].figure(
+                theme='polar', title=title, subplots=True, shape=(2, 3), legend=False,
                 colors=column_colors, subplot_titles=column_titles
             ).update_layout(height=780, title_x=0.5)))
 
-    return dict(plot_one(region) for region in regions_sorted_by_deaths)
+    return {region: plot_one(region) for region in regions_sorted_by_deaths}
 
 
 # Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
@@ -193,7 +188,7 @@ def update_cache_in_background() -> Thread:
                 regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
                 short_list = regions[0:31] + ['Taiwan']
                 __cache__.update(plot_comparision(df, short_list))
-                __cache__.update(plot_regional(df, regions, last_date))
+                __cache__.update(plot_regions(df, regions, last_date))
                 __cache__['layout'] = layout(title='Wuhan Corona Virus Pandemic stats', keys=['Comparision'] + regions,
                                              date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
                 print(datetime.now(), 'Cache Updated', flush=True)
@@ -226,9 +221,30 @@ def update_output(value):
     return [__cache__[v] for v in value] if isinstance(value, list) else __cache__[value]
 
 
-if __name__ == '__main__':
-    if 'dev' in __import__('sys').argv:
-        __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
+@server.route('/kill/{}'.format(__kill_pill__))
+def shutdown():
+    __import__('flask').request.environ.get('werkzeug.server.shutdown')()
+    return 'Bye'
 
-    update_cache_in_background()
-    app.run_server(host='0.0.0.0')
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Plot Wuhan Corona Virus Covid-19 Impact around the World')
+    parser.add_argument('-a', '--addr', type=str, help='interface address, default 0.0.0.0 (127.0.0.1 with -d)')
+    parser.add_argument('-p', '--port', type=int, help='interface port, default 8050 (8060 with -d)')
+    parser.add_argument('-d', '--dev', action='store_true', help='use cached downloads only, default false')
+    parser.add_argument('-s', '--stop', action='store_true', help='send shutdown payload to running server')
+    args = parser.parse_args()
+
+    host = (args.addr or '127.0.0.1') if args.dev else (args.addr or '0.0.0.0')
+    port = (args.port or 8060) if args.dev else (args.port or 8050)
+
+    if args.stop:
+        print(requests.get('http://{}:{}/kill/{}'.format(host, port, __kill_pill__)).content.decode())
+    else:
+        if args.dev:
+            __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
+
+        update_cache_in_background()
+        app.run_server(host=host, port=port)
