@@ -17,11 +17,10 @@ import requests
 
 __all__ = ['app', 'server']
 # noinspection SpellCheckingInspection
-__auth__ = 'xdxmMMckzFBOSHxtdkOSJlZFeQGjBDpEFqrZMoSPsEZwMXyJQFsuWiCHHMhazKvT'
-__kill__ = '/kill/' + __auth__
-__restart__ = '/restart/' + __auth__
+__kill__ = '/kill/fbhEGrxFzMpHhQAcsiAmnCZTFeROcstAxcpAMvSJIQnRwZRNFbXsZpqScLMnRbEk'
+# noinspection SpellCheckingInspection
+__restart__ = '/restart/bnboeqzAigIRGYzKghFZhzCDdxRGPiLlYATXkSdpSlrRQRmnCEFxrZiXMDYqgNlU'
 app_title = 'Wuhan Corona Virus Pandemic Stats'
-
 # noinspection SpellCheckingInspection
 URLS = {
     'population': 'http://api.worldbank.org/countries/all/indicators/SP.POP.TOTL?format=csv',
@@ -244,9 +243,9 @@ if __name__ == '__main__':
     port = (args.port or 8060) if args.dev else (args.port or 8050)
 
     if args.stop:
-        print(requests.get('http://{}:{}{}'.format(host, port, __kill__)).content.decode())
+        print(requests.get('http://127.0.0.1:{}{}'.format(port, __kill__)).content.decode())
     elif args.restart:
-        print(requests.get('http://{}:{}{}'.format(host, port, __restart__)).content.decode())
+        print(requests.get('http://127.0.0.1:{}{}'.format(port, __restart__)).content.decode())
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
