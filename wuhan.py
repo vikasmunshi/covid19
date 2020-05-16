@@ -20,6 +20,7 @@ __all__ = ['app', 'server']
 __auth__ = 'xdxmMMckzFBOSHxtdkOSJlZFeQGjBDpEFqrZMoSPsEZwMXyJQFsuWiCHHMhazKvT'
 __kill__ = '/kill/' + __auth__
 __restart__ = '/restart/' + __auth__
+app_title = 'Wuhan Corona Virus Pandemic Stats'
 
 # noinspection SpellCheckingInspection
 URLS = {
@@ -70,7 +71,7 @@ def create_layout(title: str, keys: list, date_stamp: str = '', show_keys: list 
 
 
 __cache__ = {'Loading...': html.Div('Retrieving Data ... '),
-             'layout': create_layout(title='Wuhan Corona Virus Pandemic Stats', keys=['Loading...'])}
+             'layout': create_layout(title=app_title, keys=['Loading...'])}
 __cache_lock__ = Lock()
 
 
@@ -184,7 +185,7 @@ def plot_regions(df: pd.DataFrame, regions_sorted_by_deaths: list, last_date: da
 cf.go_offline()
 # Dash
 app = dash.Dash(__name__, external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
-app.title = 'Wuhan Corona Virus Pandemic Stats'
+app.title = app_title
 app.layout = lambda: __cache__['layout']
 # Flask
 server = app.server
@@ -210,8 +211,7 @@ def update_cache_in_background():
                 short_list = regions[0:31] + ['Taiwan']
                 __cache__.update(plot_comparision(df, short_list))
                 __cache__.update(plot_regions(df, regions, last_date))
-                __cache__['layout'] = create_layout(title='Wuhan Corona Virus Pandemic stats',
-                                                    keys=['Comparision'] + regions,
+                __cache__['layout'] = create_layout(title=app_title, keys=['Comparision'] + regions,
                                                     date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
                 print(datetime.now(), 'Cache Updated', flush=True)
             except Exception as e:
