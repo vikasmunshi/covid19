@@ -158,7 +158,7 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: d
                          .update_layout(height=800, title_x=0.5)
                          .update_geos(resolution=50,
                                       showcountries=True, countrycolor='#663399',
-                                      showcoastlines=True, coastlinecolor='663399',
+                                      showcoastlines=True, coastlinecolor='#663399',
                                       showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
                                       showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
