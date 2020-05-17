@@ -20,7 +20,7 @@ __all__ = ['app', 'server']
 # noinspection SpellCheckingInspection
 __kill__ = '/kill/fbhEGrxFzMpHhQAcsiAmnCZTFeROcstAxcpAMvSJIQnRwZRNFbXsZpqScLMnRbEk'
 # noinspection SpellCheckingInspection
-__restart__ = '/restart/bnboeqzAigIRGYzKghFZhzCDdxRGPiLlYATXkSdpSlrRQRmnCEFxrZiXMDYqgNlU'
+__reload_data__ = '/reload/bnboeqzAigIRGYzKghFZhzCDdxRGPiLlYATXkSdpSlrRQRmnCEFxrZiXMDYqgNlU'
 app_title = 'Wuhan Corona Virus Pandemic Stats'
 # noinspection SpellCheckingInspection
 URLS = {
@@ -71,8 +71,10 @@ def create_layout(title: str, keys: list, date_stamp: str = '', show_keys: list 
 
 
 __cache__ = {'Loading...': html.Div('Retrieving Data ... '),
-             'layout': create_layout(title=app_title, keys=['Loading...'])}
-__cache_lock__ = Lock()
+             'layout': create_layout(title=app_title, keys=['Loading...']),
+             None: html.A(u' \u229B', title='Reload Page', href='/', style={'text-decoration': 'none'})}
+__cache_loop_lock__ = Lock()
+__cache_update_lock__ = Lock()
 
 
 def format_num(n: int) -> str:
@@ -147,32 +149,42 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: d
         return dcc.Graph(figure=ds.unstack().transpose()[countries_in_overview].figure(title=label, **kwargs)
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
+    current = df.xs(last_date, level=1).drop('World').reset_index()
+
+    def plot_geo(size_col: str, hover_data: list, label: str, marker_color: str) -> dcc.Graph:
+        return dcc.Graph(figure=px.scatter_geo(
+            current, projection='natural earth', title=label, locations='Code', size=size_col,
+            hover_name='Country', hover_data=hover_data, color_discrete_sequence=[marker_color])
+                         .update_layout(height=800, title_x=0.5)
+                         .update_geos(resolution=50,
+                                      showcountries=True, countrycolor='#663399',
+                                      showcoastlines=True, coastlinecolor='663399',
+                                      showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
+                                      showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
+
     return {'Comparision': html.Div([chart for chart in [
         plot_one(df.Cases, 'Total Cases', theme='polar'),
+        plot_geo('Cases', ['Cases', 'Deaths'], 'Total Cases', '#4C33FF'),
         plot_one(df.CPM, 'Cases Per Million', theme='polar'),
         plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.Deaths, 'Total Deaths', theme='polar'),
+        plot_geo('Deaths', ['Cases', 'Deaths'], 'Total Deaths', '#C70039'),
         plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
         plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
         plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
-        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True),
-        dcc.Graph(figure=px.scatter_geo(
-            df.xs(last_date, level=1).drop('World').reset_index(),
-            locations='Code', size='Deaths', hover_name='Country', hover_data=['Deaths', 'Cases'],
-            color_discrete_sequence=['#FF0000'], projection='natural earth',
-            title='Total Deaths', height=800).update_layout(title_x=0.5)), ]])}
+        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]])}
 
 
 # Plot regional charts
 def plot_regions(df: pd.DataFrame, regions_sorted_by_deaths: list, last_date: datetime) -> {str, html.Div}:
     columns_in_regional_chart, column_colors, column_titles = zip(
-        ('Cases', '#0000FF', 'Confirmed Cases'),
-        ('WeeklyCases', '#0000FF', 'Cases Last 7 Days'),
+        ('Cases', '#4C33FF', 'Confirmed Cases'),
+        ('WeeklyCases', '#4C33FF', 'Cases Last 7 Days'),
         ('CRR', '#FF00FF', 'Case Reproduction Rate (last 7 days average)'),
-        ('Deaths', '#FF0000', 'Attributed Deaths'),
-        ('WeeklyDeaths', '#FF0000', 'Deaths Last 7 Days'),
-        ('CFR', '#FF0000', 'Case Fatality Rate (%)'),
+        ('Deaths', '#C70039', 'Attributed Deaths'),
+        ('WeeklyDeaths', '#C70039', 'Deaths Last 7 Days'),
+        ('CFR', '#C70039', 'Case Fatality Rate (%)'),
     )
 
     def plot_one(region: str) -> html.Div:
@@ -203,36 +215,41 @@ def update_output(value):
     return [__cache__[v] for v in value] if isinstance(value, list) else __cache__[value]
 
 
+def update_cache() -> None:
+    if not __cache_update_lock__.locked():
+        with __cache_update_lock__:
+            print(datetime.now(), 'Updating Cache', flush=True)
+            __cache__['population'] = population = __cache__.get('population', get_population())
+            df = transform_covid19_data(population)
+            last_date = max(df.index.get_level_values(level=1))
+            regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
+            short_list = regions[0:31] + ['Taiwan']
+            __cache__.update(plot_comparision(df, short_list, last_date))
+            __cache__.update(plot_regions(df, regions, last_date))
+            __cache__['layout'] = create_layout(title=app_title, keys=['Comparision'] + regions,
+                                                date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
+            print(datetime.now(), 'Cache Updated', flush=True)
+
+
 # Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
 @server.before_first_request
 def update_cache_in_background():
-    def update_cache():
-        __cache_lock__.acquire()
-        population = get_population()
-        while __cache_lock__.locked():
-            try:
-                print(datetime.now(), 'Updating Cache', flush=True)
-                df = transform_covid19_data(population)
-                last_date = max(df.index.get_level_values(level=1))
-                regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
-                short_list = regions[0:31] + ['Taiwan']
-                __cache__.update(plot_comparision(df, short_list, last_date))
-                __cache__.update(plot_regions(df, regions, last_date))
-                __cache__['layout'] = create_layout(title=app_title, keys=['Comparision'] + regions,
-                                                    date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
-                print(datetime.now(), 'Cache Updated', flush=True)
-            except Exception as e:
-                print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                at = (1 + int(time()) // 3600) * 3600
-            else:
-                at = (1 + int(time()) // 43200) * 43200
-            while (wait := at - int(time())) > 0:
-                print(datetime.now(), 'Next Cache Update at {} UTC'.format(datetime.utcfromtimestamp(at)), flush=True)
-                sleep(min(wait / 2, 600))
-        __cache_lock__.release()
+    def loop_update_cache():
+        with __cache_loop_lock__:
+            while True:
+                try:
+                    update_cache()
+                except Exception as e:
+                    print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
+                    at = (1 + int(time()) // 3600) * 3600
+                else:
+                    at = (1 + int(time()) // 43200) * 43200
+                while (wait := at - int(time())) > 0:
+                    print(datetime.now(), 'Next Update at {} UTC'.format(datetime.utcfromtimestamp(at)), flush=True)
+                    sleep(min(wait / 2, 600))
 
-    if not __cache_lock__.locked():
-        Thread(target=update_cache, daemon=True).start()
+    if not __cache_loop_lock__.locked():
+        Thread(target=loop_update_cache, daemon=True).start()
 
 
 if __name__ == '__main__':
@@ -253,23 +270,22 @@ if __name__ == '__main__':
     if args.stop:
         print(requests.get('http://127.0.0.1:{}{}'.format(port, __kill__)).content.decode())
     elif args.restart:
-        print(requests.get('http://127.0.0.1:{}{}'.format(port, __restart__)).content.decode())
+        print(requests.get('http://127.0.0.1:{}{}'.format(port, __reload_data__)).content.decode())
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
-        __start_server__ = True
 
 
-        @server.route(__restart__)
+        @server.route(__reload_data__)
+        def reload_data():
+            update_cache()
+            return 'Reloaded ...'
+
+
         @server.route(__kill__)
         def shutdown():
-            global __start_server__
-            from flask import request
-            __start_server__ = request.path == __restart__
-            request.environ.get('werkzeug.server.shutdown')()
-            return 'Restarted' if __start_server__ else 'Killed'
+            __import__('flask').request.environ.get('werkzeug.server.shutdown')()
+            return 'Killed'
 
 
-        while __start_server__:
-            __start_server__ = False
-            app.run_server(host=host, port=port)
+        app.run_server(host=host, port=port)
