@@ -168,7 +168,7 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: d
         plot_one(df.CPM, 'Cases Per Million', theme='polar'),
         plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.Deaths, 'Total Deaths', theme='polar'),
-        plot_geo('Deaths', ['Cases', 'Deaths'], 'Total Deaths', '#C70039'),
+        plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
         plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
         plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
@@ -236,6 +236,8 @@ def update_cache() -> None:
 def update_cache_in_background():
     def loop_update_cache():
         with __cache_loop_lock__:
+            if __import__('platform').system() == 'Darwin':
+                __import__('caffeine')
             while True:
                 try:
                     update_cache()
@@ -246,7 +248,7 @@ def update_cache_in_background():
                     at = (1 + int(time()) // 43200) * 43200
                 while (wait := at - int(time())) > 0:
                     print(datetime.now(), 'Next Update at {} UTC'.format(datetime.utcfromtimestamp(at)), flush=True)
-                    sleep(min(wait / 2, 600))
+                    sleep(min(wait / 2, 3600))
 
     if not __cache_loop_lock__.locked():
         Thread(target=loop_update_cache, daemon=True).start()

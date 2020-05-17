@@ -1,4 +1,5 @@
 Flask>=1.1.2
+caffeine>=0.5
 cufflinks>=0.17.3
 dash>=1.12.0
 numpy>=1.18.4
