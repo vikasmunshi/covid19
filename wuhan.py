@@ -133,7 +133,7 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df['WeeklyCases'] = df.Cases.diff(7)
     df['WeeklyCases'][df['WeeklyCases'] < 0] = 0
     df['WeeklyDeaths'] = df.Deaths.diff(7)
-    df['WeeklyCases'][df['WeeklyCases'] < 0] = 0
+    df['WeeklyDeaths'][df['WeeklyDeaths'] < 0] = 0
     df['CPM'] = 10 ** 6 * df.Cases / df.Population
     df['DPM'] = 10 ** 6 * df.Deaths / df.Population
     df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
