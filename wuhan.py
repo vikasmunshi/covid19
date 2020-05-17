@@ -13,6 +13,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import requests
 
 __all__ = ['app', 'server']
@@ -77,7 +78,8 @@ __cache_lock__ = Lock()
 def format_num(n: int) -> str:
     suffixes = ['', ' Thousand', ' Million', ' Billion']
     i = max(0, min(3, int(floor(0 if n == 0 else log10(abs(n)) / 3))))
-    return '{:,.3f}{}'.format(n / 10 ** (3 * i), suffixes[i])
+    return (str(i_n) if (i_n := int(n)) - n == 0 else '{:,.2f}'.format(n)) if i == 0 \
+        else '{:,.3f}{}'.format(n / 10 ** (3 * i), suffixes[i])
 
 
 # retrieve data from URL and return Pandas DataFrame
@@ -124,11 +126,12 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df = pd.merge(df, get_covid19_data('deaths'), on=['Country', 'Date'], how='inner')
     df = pd.concat([df, df.groupby('Date').sum().reset_index('Date').sort_values('Date')]).fillna('World')
     df = pd.merge(df, population, on=['Country'], how='left').dropna()
-    df = df[['Country', 'Date', 'Population', 'Cases', 'Deaths']]
+    df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
     df = df.set_index(['Country', 'Date'])
     df['WeeklyCases'] = df.Cases.diff(7)
+    df['WeeklyCases'][df['WeeklyCases'] < 0] = 0
     df['WeeklyDeaths'] = df.Deaths.diff(7)
-    df[df < 0] = 0
+    df['WeeklyCases'][df['WeeklyCases'] < 0] = 0
     df['CPM'] = 10 ** 6 * df.Cases / df.Population
     df['DPM'] = 10 ** 6 * df.Deaths / df.Population
     df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
@@ -138,7 +141,7 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
 
 
 # Plot overview with country comparisons
-def plot_comparision(df: pd.DataFrame, countries_in_overview: list) -> {str, html.Div}:
+def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: datetime) -> {str, html.Div}:
     # Plot single metric for select countries
     def plot_one(ds: pd.Series, label: str, **kwargs) -> dcc.Graph:
         return dcc.Graph(figure=ds.unstack().transpose()[countries_in_overview].figure(title=label, **kwargs)
@@ -153,7 +156,12 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list) -> {str, htm
         plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
         plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
-        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]])}
+        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True),
+        dcc.Graph(figure=px.scatter_geo(
+            df.xs(last_date, level=1).drop('World').reset_index(),
+            locations='Code', size='Deaths', hover_name='Country', hover_data=['Deaths', 'Cases'],
+            color_discrete_sequence=['#FF0000'], projection='natural earth',
+            title='Total Deaths', height=800).update_layout(title_x=0.5)), ]])}
 
 
 # Plot regional charts
@@ -168,9 +176,9 @@ def plot_regions(df: pd.DataFrame, regions_sorted_by_deaths: list, last_date: da
     )
 
     def plot_one(region: str) -> html.Div:
-        p, c, d, dpm = df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]
-        title = '<b>{}</b><BR><i>{} People, {} Cases, {} Deaths, {:,.2f} Deaths Per Million, As On {}</i><BR>' \
-            .format(region, format_num(p), format_num(c), format_num(d), dpm, last_date.strftime('%d %b %Y'))
+        p, c, d, dpm = [format_num(x) for x in df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]]
+        title = '<b>{}</b><BR><i>{} People, {} Cases, {} Deaths, {} Deaths Per Million, As On {}</i><BR>'.format(
+            region, p, c, d, dpm, last_date.strftime('%d %b %Y'))
         return html.Div(dcc.Graph(
             figure=df.loc[region][list(columns_in_regional_chart)].figure(
                 theme='polar', title=title, subplots=True, shape=(2, 3), legend=False,
@@ -208,7 +216,7 @@ def update_cache_in_background():
                 last_date = max(df.index.get_level_values(level=1))
                 regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
                 short_list = regions[0:31] + ['Taiwan']
-                __cache__.update(plot_comparision(df, short_list))
+                __cache__.update(plot_comparision(df, short_list, last_date))
                 __cache__.update(plot_regions(df, regions, last_date))
                 __cache__['layout'] = create_layout(title=app_title, keys=['Comparision'] + regions,
                                                     date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
@@ -219,7 +227,7 @@ def update_cache_in_background():
             else:
                 at = (1 + int(time()) // 43200) * 43200
             while (wait := at - int(time())) > 0:
-                print(datetime.now(), 'Next Cache Update at {}'.format(datetime.utcfromtimestamp(at)), flush=True)
+                print(datetime.now(), 'Next Cache Update at {} UTC'.format(datetime.utcfromtimestamp(at)), flush=True)
                 sleep(min(wait / 2, 600))
         __cache_lock__.release()
 
