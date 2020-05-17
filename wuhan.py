@@ -170,7 +170,9 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: d
         plot_one(df.Deaths, 'Total Deaths', theme='polar'),
         plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
         plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
+        plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
         plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
+        plot_geo('WeeklyDeaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days)', '#C70039'),
         plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
         plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
         plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]])}
@@ -262,16 +264,16 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--addr', type=str, help='interface address, default 0.0.0.0 (127.0.0.1 with -d)')
     parser.add_argument('-p', '--port', type=int, help='interface port, default 8050 (8060 with -d)')
     parser.add_argument('-d', '--dev', action='store_true', help='use cached downloads only, default false')
-    parser.add_argument('-s', '--stop', action='store_true', help='send kill payload to running server')
-    parser.add_argument('-r', '--restart', action='store_true', help='send restart payload to running server')
+    parser.add_argument('-k', '--kill', action='store_true', help='send kill payload to server')
+    parser.add_argument('-r', '--reload', action='store_true', help='send reload data payload to server')
     args = parser.parse_args()
 
     host = (args.addr or '127.0.0.1') if args.dev else (args.addr or '0.0.0.0')
     port = (args.port or 8060) if args.dev else (args.port or 8050)
 
-    if args.stop:
+    if args.kill:
         print(requests.get('http://127.0.0.1:{}{}'.format(port, __kill__)).content.decode())
-    elif args.restart:
+    elif args.reload:
         print(requests.get('http://127.0.0.1:{}{}'.format(port, __reload_data__)).content.decode())
     else:
         if args.dev:
