@@ -75,6 +75,7 @@ __cache__ = {'Loading...': html.Div('Retrieving Data ... '),
              None: html.A(u' \u229B', title='Reload Page', href='/', style={'text-decoration': 'none'})}
 __cache_loop_lock__ = Lock()
 __cache_update_lock__ = Lock()
+__at__ = time()
 
 
 def format_num(n: int) -> str:
@@ -240,6 +241,7 @@ def update_cache() -> None:
 @server.before_first_request
 def update_cache_in_background():
     def loop_update_cache():
+        global __at__
         with __cache_loop_lock__:
             if __import__('platform').system() == 'Darwin':
                 __import__('caffeine')
@@ -248,11 +250,10 @@ def update_cache_in_background():
                     update_cache()
                 except Exception as e:
                     print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                    at = (1 + int(time()) // 3600) * 3600
+                    __at__ = (1 + int(time()) // 3600) * 3600
                 else:
-                    at = ((1 + (int(time()) // 43200)) * 43200) + 14400
-                while (wait := at - int(time())) > 0:
-                    print(datetime.now(), 'Next Update at {}'.format(datetime.fromtimestamp(at)), flush=True)
+                    __at__ = ((1 + (int(time()) // 43200)) * 43200) + 14400
+                while (wait := __at__ - int(time())) > 0:
                     sleep(min(wait / 2, 3600))
 
     if not __cache_loop_lock__.locked():
@@ -269,6 +270,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dev', action='store_true', help='use cached downloads only, default false')
     parser.add_argument('-k', '--kill', action='store_true', help='send kill payload to server')
     parser.add_argument('-r', '--reload', action='store_true', help='send reload data payload to server')
+    parser.add_argument('-s', '--status', action='store_true', help='print server status')
     args = parser.parse_args()
 
     host = (args.addr or '127.0.0.1') if args.dev else (args.addr or '0.0.0.0')
@@ -278,9 +280,17 @@ if __name__ == '__main__':
         print(requests.get('http://127.0.0.1:{}{}'.format(port, __kill__)).content.decode())
     elif args.reload:
         print(requests.get('http://127.0.0.1:{}{}'.format(port, __reload_data__)).content.decode())
+    elif args.status:
+        print(requests.get('http://127.0.0.1:{}/status'.format(port)).content.decode())
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
+
+
+        @server.route('/status')
+        def status():
+            return 'update in progress' if __cache_update_lock__.locked() \
+                else 'next update at {}'.format(datetime.fromtimestamp(__at__))
 
 
         @server.route(__reload_data__)
