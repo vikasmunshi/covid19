@@ -164,18 +164,21 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: d
 
     return {'Comparision': html.Div([chart for chart in [
         plot_one(df.Cases, 'Total Cases', theme='polar'),
-        plot_geo('Cases', ['Cases', 'Deaths'], 'Total Cases', '#4C33FF'),
         plot_one(df.CPM, 'Cases Per Million', theme='polar'),
         plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
         plot_one(df.Deaths, 'Total Deaths', theme='polar'),
-        plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
         plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
-        plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
         plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
-        plot_geo('WeeklyDeaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days)', '#C70039'),
         plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
+
         plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
-        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]])}
+        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True),
+
+        plot_geo('Cases', ['Cases', 'Deaths'], 'Total Cases', '#4C33FF'),
+        plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
+        plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
+        plot_geo('WeeklyDeaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days)', '#C70039'),
+    ]])}
 
 
 # Plot regional charts
@@ -233,7 +236,7 @@ def update_cache() -> None:
             print(datetime.now(), 'Cache Updated', flush=True)
 
 
-# Refresh every 12th hour i.e. 06:00, 18:00 (43200 seconds)
+# Refresh every 12th hour (43200 seconds) offset by 6 hrs (21600 - 7200 CET offset from UTC) i.e. 06:00, 18:00 CET
 @server.before_first_request
 def update_cache_in_background():
     def loop_update_cache():
@@ -247,7 +250,7 @@ def update_cache_in_background():
                     print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
                     at = (1 + int(time()) // 3600) * 3600
                 else:
-                    at = ((1 + int(time()) // 43200) * 43200) + 21600
+                    at = ((1 + (int(time()) // 43200)) * 43200) + 14400
                 while (wait := at - int(time())) > 0:
                     print(datetime.now(), 'Next Update at {}'.format(datetime.fromtimestamp(at)), flush=True)
                     sleep(min(wait / 2, 3600))
