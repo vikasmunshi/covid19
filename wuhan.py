@@ -233,7 +233,7 @@ def update_cache() -> None:
             print(datetime.now(), 'Cache Updated', flush=True)
 
 
-# Refresh every 12th hour i.e. 00:00 UTC, 12:00 UTC (43200 seconds)
+# Refresh every 12th hour i.e. 06:00, 18:00 (43200 seconds)
 @server.before_first_request
 def update_cache_in_background():
     def loop_update_cache():
@@ -247,9 +247,9 @@ def update_cache_in_background():
                     print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
                     at = (1 + int(time()) // 3600) * 3600
                 else:
-                    at = (1 + int(time()) // 43200) * 43200
+                    at = ((1 + int(time()) // 43200) * 43200) + 21600
                 while (wait := at - int(time())) > 0:
-                    print(datetime.now(), 'Next Update at {} UTC'.format(datetime.utcfromtimestamp(at)), flush=True)
+                    print(datetime.now(), 'Next Update at {}'.format(datetime.fromtimestamp(at)), flush=True)
                     sleep(min(wait / 2, 3600))
 
     if not __cache_loop_lock__.locked():
