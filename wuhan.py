@@ -176,7 +176,6 @@ def plot_comparision(df: pd.DataFrame, countries_in_overview: list, last_date: d
         plot_geo('Cases', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Cases', '#4C33FF'),
         plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
         plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
-        plot_geo('WeeklyDeaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days)', '#C70039'),
         plot_geo('WeeklyDPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days) Per Million', '#C70039'),
     ]])}
 
@@ -249,7 +248,7 @@ def update_cache_in_background():
                     update_cache()
                 except Exception as e:
                     print(datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                    __at__ = (1 + int(time()) // 3600) * 3600
+                    __at__ = time() + 3600
                 else:
                     __at__ = ((1 + (int(time()) // 43200)) * 43200) + 14400
                 while (wait := __at__ - int(time())) > 0:
@@ -288,8 +287,11 @@ if __name__ == '__main__':
 
         @server.route('/status')
         def status():
-            return 'update in progress' if __cache_update_lock__.locked() \
+            msg = 'server listening on {}:{}\n'.format(host, port)
+            msg += '{} items in cache\n'.format(len(__cache__.keys()) - 3)
+            msg += 'update in progress' if __cache_update_lock__.locked() \
                 else 'next update at {}'.format(datetime.fromtimestamp(__at__))
+            return msg
 
 
         @server.route(__reload_data__)
