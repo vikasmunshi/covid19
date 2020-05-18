@@ -5,7 +5,10 @@ import datetime
 import inspect
 import io
 import math
+import os
 import platform
+import random
+import string
 import sys
 import threading
 import time
@@ -21,10 +24,15 @@ import plotly.express as px
 import requests
 
 __all__ = ['app', 'server']
-with open('auth.txt') as auth_file:
-    auth_tokens = auth_file.readlines()
-kill_payload = '/kill/' + auth_tokens[0]
-reload_data_payload = '/reload/' + __all__[1]
+
+auth_file = 'auth.txt'
+if not os.path.exists(auth_file):
+    with open(auth_file, 'w') as out_file:
+        out_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(64))) for n in range(9)]))
+with open(auth_file) as in_file:
+    auth_tokens = in_file.readlines()
+kill_payload = '/kill/' + auth_tokens[4]
+reload_data_payload = '/reload/' + auth_tokens[2]
 app_title = 'Wuhan Corona Virus Pandemic Stats'
 # noinspection SpellCheckingInspection
 URLS = {
