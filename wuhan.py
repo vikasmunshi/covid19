@@ -27,12 +27,12 @@ __all__ = ['app', 'server']
 
 auth_file = 'auth.txt'
 if not os.path.exists(auth_file):
-    with open(auth_file, 'w') as out_file:
-        out_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(64))) for n in range(9)]))
+    with open(auth_file, 'w') as o_file:
+        o_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(128))) for n in range(99)]))
 with open(auth_file) as in_file:
     auth_tokens = in_file.readlines()
-kill_payload = '/kill/' + auth_tokens[4]
-reload_data_payload = '/reload/' + auth_tokens[2]
+kill_payload = '/kill/' + auth_tokens[42]
+reload_data_payload = '/reload/' + auth_tokens[69]
 app_title = 'Wuhan Corona Virus Pandemic Stats'
 # noinspection SpellCheckingInspection
 URLS = {
@@ -255,12 +255,12 @@ def update_cache() -> bool:
             df = transform_covid19_data(population)
             last_date = max(df.index.get_level_values(level=1))
             regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
-            short_list = regions[0:31] + ['Taiwan']
+            short_list = regions[0:18] + ['Taiwan']
             comparision_charts = plot_comparision(df, short_list, last_date)
             regional_charts = plot_regions(df, regions, last_date)
             all_charts = list(sorted(comparision_charts.keys())) + regions
-            layout = create_layout(title=app_title, keys=all_charts, date_stamp=last_date.strftime('%d %b %Y'),
-                                   show_keys=short_list)
+            layout = create_layout(title=app_title, date_stamp=last_date.strftime('%d %b %Y'),
+                                   keys=all_charts, show_keys=short_list)
             cache.update(comparision_charts)
             cache.update(regional_charts)
             cache['layout'] = layout
