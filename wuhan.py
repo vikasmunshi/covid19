@@ -158,15 +158,24 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
 # Plot overview with country comparisons
 def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.datetime) -> {str, dash_html.Div}:
     # Plot single metric for select countries
-    def plot_one(ds: pd.Series, label: str, **kwargs) -> dcc.Graph:
-        return dcc.Graph(figure=ds.unstack().transpose()[regions].figure(title=label, **kwargs)
+    def plot_time_series(col: str, label: str, **kwargs) -> dcc.Graph:
+        return dcc.Graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs)
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
-    current = df.xs(last_date, level=1).drop('World').reset_index()
+    df_current = df.xs(last_date, axis=0, level=1)
+    df_geo = df_current.drop('World').reset_index()
 
-    def plot_geo(size_col: str, hover_data: list, label: str, marker_color: str) -> dcc.Graph:
+    # Plot current value of single metric for every country
+    def plot_current(col: str, label: str, drop_world: bool = False, cut_at: str = None, **kwargs) -> dcc.Graph:
+        ds = df_current[col].drop('World') if drop_world else df_current[col]
+        ds = ds.nlargest(42) if cut_at is None else ds[ds >= ds.loc[cut_at]]
+        return dcc.Graph(figure=ds.sort_values().figure(title=label, kind='bar', orientation='h', **kwargs)
+                         .update_layout(height=800, title_x=0.5, hovermode='y'))
+
+    # Plot single metric for every country on a map
+    def plot_geo(col: str, hover_data: list, label: str, marker_color: str) -> dcc.Graph:
         return dcc.Graph(figure=px.scatter_geo(
-            current, projection='natural earth', title=label, locations='Code', size=size_col,
+            df_geo, projection='natural earth', title=label, locations='Code', size=col,
             hover_name='Country', hover_data=hover_data, color_discrete_sequence=[marker_color])
                          .update_layout(height=800, title_x=0.5)
                          .update_geos(resolution=50,
@@ -176,19 +185,21 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.dateti
                                       showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
     return {'Comparision': dash_html.Div([chart for chart in [
-        plot_one(df.Cases, 'Total Cases', theme='polar'),
-        plot_one(df.CPM, 'Cases Per Million', theme='polar'),
-        plot_one(df.WeeklyCases, 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
-        plot_one(df.Deaths, 'Total Deaths', theme='polar'),
-        plot_one(df.DPM, 'Deaths Per Million', theme='polar'),
-        plot_one(df.WeeklyDeaths, 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
-        plot_one(df.WeeklyDPM, 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
-        plot_one(df.CFR, 'Case Fatality Rate (%)', theme='polar'),
-        plot_one(df.CRR, 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True),
+        plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
+        plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']),
         plot_geo('Cases', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Cases', '#4C33FF'),
         plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
         plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
         plot_geo('WeeklyDPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days) Per Million', '#C70039'),
+        plot_time_series('Cases', 'Total Cases', theme='polar'),
+        plot_time_series('CPM', 'Cases Per Million', theme='polar'),
+        plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
+        plot_time_series('Deaths', 'Total Deaths', theme='polar'),
+        plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
+        plot_time_series('WeeklyDeaths', 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
+        plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
+        plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
+        plot_time_series('CRR', 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True),
     ]])}
 
 
