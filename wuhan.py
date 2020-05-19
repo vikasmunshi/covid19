@@ -190,12 +190,13 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.dateti
             plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
             plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']), ]]),
         'Maps Cases': dash_html.Div([chart for chart in [
-            plot_geo('CPM', 'Cases Per Million', '#C70039'),
-            plot_geo('Cases', 'Total Cases', '#4C33FF'), ]]),
+            plot_geo('Cases', 'Total Cases', '#4C33FF'),
+            plot_geo('CPM', 'Cases Per Million', '#C70039'), ]]),
         'Maps Deaths': dash_html.Div([chart for chart in [
-            plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'),
+            plot_geo('Deaths', 'Total Deaths', '#C70039'),
             plot_geo('DPM', 'Deaths Per Million', '#C70039'),
-            plot_geo('Deaths', 'Total Deaths', '#C70039'), ]]),
+            plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'),
+            plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'), ]]),
         'Time-series Cases': dash_html.Div([chart for chart in [
             plot_time_series('Cases', 'Total Cases', theme='polar'),
             plot_time_series('CPM', 'Cases Per Million', theme='polar'),
