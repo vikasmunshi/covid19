@@ -184,23 +184,28 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.dateti
                                       showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
                                       showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
-    return {'Comparision': dash_html.Div([chart for chart in [
-        plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
-        plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']),
-        plot_geo('Cases', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Cases', '#4C33FF'),
-        plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
-        plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
-        plot_geo('WeeklyDPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Weekly Deaths (last 7 days) Per Million', '#C70039'),
-        plot_time_series('Cases', 'Total Cases', theme='polar'),
-        plot_time_series('CPM', 'Cases Per Million', theme='polar'),
-        plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
-        plot_time_series('Deaths', 'Total Deaths', theme='polar'),
-        plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
-        plot_time_series('WeeklyDeaths', 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
-        plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'),
-        plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
-        plot_time_series('CRR', 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True),
-    ]])}
+    return {
+        'Current Deaths': dash_html.Div([chart for chart in [
+            plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
+            plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']), ]]),
+        'Maps': dash_html.Div([chart for chart in [
+            plot_geo('Cases', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Cases', '#4C33FF'),
+            plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
+            plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
+            plot_geo('WeeklyDPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Deaths Last 7 Days Per Million', '#C70039'), ]]),
+        'Time-series Cases': dash_html.Div([chart for chart in [
+            plot_time_series('Cases', 'Total Cases', theme='polar'),
+            plot_time_series('CPM', 'Cases Per Million', theme='polar'),
+            plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'), ]]),
+        'Time-series Deaths': dash_html.Div([chart for chart in [
+            plot_time_series('Deaths', 'Total Deaths', theme='polar'),
+            plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
+            plot_time_series('WeeklyDeaths', 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
+            plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
+        'Time-series Rates': dash_html.Div([chart for chart in [
+            plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
+            plot_time_series('CRR', 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]]),
+    }
 
 
 # Plot regional charts
@@ -251,10 +256,14 @@ def update_cache() -> bool:
             last_date = max(df.index.get_level_values(level=1))
             regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
             short_list = regions[0:31] + ['Taiwan']
-            cache.update(plot_comparision(df, short_list, last_date))
-            cache.update(plot_regions(df, regions, last_date))
-            cache['layout'] = create_layout(title=app_title, keys=['Comparision'] + regions,
-                                            date_stamp=last_date.strftime('%d %b %Y'), show_keys=short_list)
+            comparision_charts = plot_comparision(df, short_list, last_date)
+            regional_charts = plot_regions(df, regions, last_date)
+            all_charts = list(sorted(comparision_charts.keys())) + regions
+            layout = create_layout(title=app_title, keys=all_charts, date_stamp=last_date.strftime('%d %b %Y'),
+                                   show_keys=short_list)
+            cache.update(comparision_charts)
+            cache.update(regional_charts)
+            cache['layout'] = layout
             cache.pop('Loading...', None)
             cache.pop(None, None)
             print(datetime.datetime.now(), 'Cache Updated', flush=True)
