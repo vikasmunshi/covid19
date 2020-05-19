@@ -173,10 +173,11 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.dateti
                          .update_layout(height=800, title_x=0.5, hovermode='y'))
 
     # Plot single metric for every country on a map
-    def plot_geo(col: str, hover_data: list, label: str, marker_color: str) -> dcc.Graph:
+    def plot_geo(col: str, label: str, marker_color: str) -> dcc.Graph:
         return dcc.Graph(figure=px.scatter_geo(
             df_geo, projection='natural earth', title=label, locations='Code', size=col,
-            hover_name='Country', hover_data=hover_data, color_discrete_sequence=[marker_color])
+            hover_name='Country', hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
+            color_discrete_sequence=[marker_color])
                          .update_layout(height=800, title_x=0.5)
                          .update_geos(resolution=50,
                                       showcountries=True, countrycolor='#663399',
@@ -188,11 +189,13 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.dateti
         'Current Deaths': dash_html.Div([chart for chart in [
             plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
             plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']), ]]),
-        'Maps': dash_html.Div([chart for chart in [
-            plot_geo('Cases', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Cases', '#4C33FF'),
-            plot_geo('Deaths', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths', '#C70039'),
-            plot_geo('DPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Total Deaths Per Million', '#C70039'),
-            plot_geo('WeeklyDPM', ['Cases', 'Deaths', 'DPM', 'CFR'], 'Deaths Last 7 Days Per Million', '#C70039'), ]]),
+        'Maps Cases': dash_html.Div([chart for chart in [
+            plot_geo('CPM', 'Cases Per Million', '#C70039'),
+            plot_geo('Cases', 'Total Cases', '#4C33FF'), ]]),
+        'Maps Deaths': dash_html.Div([chart for chart in [
+            plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'),
+            plot_geo('DPM', 'Deaths Per Million', '#C70039'),
+            plot_geo('Deaths', 'Total Deaths', '#C70039'), ]]),
         'Time-series Cases': dash_html.Div([chart for chart in [
             plot_time_series('Cases', 'Total Cases', theme='polar'),
             plot_time_series('CPM', 'Cases Per Million', theme='polar'),
