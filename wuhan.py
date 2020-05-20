@@ -292,7 +292,7 @@ def update_cache_in_background():
                 else:
                     next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 14400
                 while (wait := next_reload_data_at - int(time.time())) > 0:
-                    time.sleep(min(wait / 2, 3600))
+                    time.sleep(wait / 2)
 
     if not cache_loop_lock.locked():
         threading.Thread(target=loop_update_cache, daemon=True).start()
