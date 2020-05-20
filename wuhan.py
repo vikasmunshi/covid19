@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 """ Visualize Wuhan Corona Virus Stats """
-import datetime
+import datetime as dt
 import inspect
 import io
 import math
@@ -16,7 +16,7 @@ import time
 import cufflinks as cf
 import dash
 import dash_core_components as dcc
-import dash_html_components as dash_html
+import dash_html_components as dhc
 import flask
 import numpy as np
 import pandas as pd
@@ -30,9 +30,9 @@ if not os.path.exists(auth_file):
     with open(auth_file, 'w') as o_file:
         o_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(128))) for n in range(99)]))
 with open(auth_file) as in_file:
-    auth_tokens = in_file.readlines()
-kill_payload = '/kill/' + auth_tokens[42]
-reload_data_payload = '/reload/' + auth_tokens[69]
+    auth_tokens = in_file.readlines()[42:69]
+kill_payload = '/kill/' + auth_tokens[0]
+reload_data_payload = '/reload/' + auth_tokens[-1]
 app_title = 'Wuhan Corona Virus Pandemic Stats'
 # noinspection SpellCheckingInspection
 URLS = {
@@ -73,18 +73,16 @@ URLS = {
 }
 
 
-def create_layout(title: str, keys: list, date_stamp: str = '', show_keys: list = None) -> dash_html.Div:
-    return dash_html.Div([
-        dash_html.H6(['{} {} (retrieved {})'.format(title, date_stamp, datetime.datetime.now().strftime('%d %b %H:%M')),
-                      dash_html.A(u' \u229B', title='Reload Page', href='/', style={'text-decoration': 'none'})]),
-        dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys],
-                     value=keys[0] if show_keys is None else show_keys, multi=bool(show_keys)),
-        dash_html.Div(id='page-content')])
+def create_layout(title: str, keys: list, ds: str = '', show_keys: list = None) -> {str: dhc.Div}:
+    show_keys = keys[0] if show_keys is None else show_keys
+    return {'layout': dhc.Div([
+        dhc.H6([home_link, '{} {} (fetched {})'.format(title, ds, dt.datetime.now().strftime('%d %b %H:%M'))]),
+        dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys], value=show_keys, multi=True),
+        dhc.Div(id='page-content')])}
 
 
-cache = {'Loading...': dash_html.Div('Retrieving Data ... '),
-         'layout': create_layout(title=app_title, keys=['Loading...']),
-         None: dash_html.A(u' \u229B', title='Reload Page', href='/', style={'text-decoration': 'none'})}
+home_link = dhc.A(u' \u2318 ', title='Reload Page', href='/', style={'text-decoration': 'none'})
+cache = {'Loading...': dhc.Div(['Loading ...', home_link]), **create_layout(title=app_title, keys=['Loading...'])}
 cache_loop_lock = threading.Lock()
 cache_update_lock = threading.Lock()
 next_reload_data_at = time.time()
@@ -156,7 +154,7 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
 
 
 # Plot overview with country comparisons
-def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.datetime) -> {str, dash_html.Div}:
+def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
     # Plot single metric for select countries
     def plot_time_series(col: str, label: str, **kwargs) -> dcc.Graph:
         return dcc.Graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs)
@@ -186,34 +184,34 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: datetime.dateti
                                       showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
     return {
-        'Current Deaths': dash_html.Div([chart for chart in [
+        'Current Deaths': dhc.Div([chart for chart in [
             plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
             plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']), ]]),
-        'Maps Cases': dash_html.Div([chart for chart in [
+        'Maps Cases': dhc.Div([chart for chart in [
             plot_geo('Cases', 'Total Cases', '#4C33FF'),
             plot_geo('CPM', 'Cases Per Million', '#C70039'), ]]),
-        'Maps Deaths': dash_html.Div([chart for chart in [
+        'Maps Deaths': dhc.Div([chart for chart in [
             plot_geo('Deaths', 'Total Deaths', '#C70039'),
             plot_geo('DPM', 'Deaths Per Million', '#C70039'),
             plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'),
             plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'), ]]),
-        'Time-series Cases': dash_html.Div([chart for chart in [
+        'Time-series Cases': dhc.Div([chart for chart in [
             plot_time_series('Cases', 'Total Cases', theme='polar'),
             plot_time_series('CPM', 'Cases Per Million', theme='polar'),
             plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'), ]]),
-        'Time-series Deaths': dash_html.Div([chart for chart in [
+        'Time-series Deaths': dhc.Div([chart for chart in [
             plot_time_series('Deaths', 'Total Deaths', theme='polar'),
             plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
             plot_time_series('WeeklyDeaths', 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
             plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
-        'Time-series Rates': dash_html.Div([chart for chart in [
+        'Time-series Rates': dhc.Div([chart for chart in [
             plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
             plot_time_series('CRR', 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]]),
     }
 
 
 # Plot regional charts
-def plot_regions(df: pd.DataFrame, regions: list, last_date: datetime.datetime) -> {str, dash_html.Div}:
+def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
     columns_in_regional_chart, column_colors, column_titles = zip(
         ('Cases', '#4C33FF', 'Confirmed Cases'),
         ('WeeklyCases', '#4C33FF', 'Cases Last 7 Days'),
@@ -223,11 +221,11 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: datetime.datetime) 
         ('CFR', '#C70039', 'Case Fatality Rate (%)'),
     )
 
-    def plot_one(region: str) -> dash_html.Div:
+    def plot_one(region: str) -> dhc.Div:
         p, c, d, dpm = [format_num(x) for x in df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]]
         title = '<b>{}</b><BR><i>{} People, {} Cases, {} Deaths, {} Deaths Per Million, As On {}</i><BR>'.format(
             region, p, c, d, dpm, last_date.strftime('%d %b %Y'))
-        return dash_html.Div(dcc.Graph(
+        return dhc.Div(dcc.Graph(
             figure=df.loc[region][list(columns_in_regional_chart)].figure(
                 theme='polar', title=title, subplots=True, shape=(2, 3), legend=False,
                 colors=column_colors, subplot_titles=column_titles
@@ -254,23 +252,18 @@ def update_output(value):
 def update_cache() -> bool:
     if not cache_update_lock.locked():
         with cache_update_lock:
-            print(datetime.datetime.now(), 'Updating Cache', flush=True)
+            print(dt.datetime.now(), 'Updating Cache', flush=True)
             cache['population'] = population = cache.get('population', get_population())
             df = transform_covid19_data(population)
             last_date = max(df.index.get_level_values(level=1))
             regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
             short_list = regions[0:18] + ['Taiwan']
-            comparision_charts = plot_comparision(df, short_list, last_date)
-            regional_charts = plot_regions(df, regions, last_date)
-            all_charts = list(sorted(comparision_charts.keys())) + regions
-            layout = create_layout(title=app_title, date_stamp=last_date.strftime('%d %b %Y'),
-                                   keys=all_charts, show_keys=short_list)
-            cache.update(comparision_charts)
-            cache.update(regional_charts)
-            cache['layout'] = layout
-            cache.pop('Loading...', None)
-            cache.pop(None, None)
-            print(datetime.datetime.now(), 'Cache Updated', flush=True)
+            cache.update(comparision_charts := plot_comparision(df, short_list, last_date))
+            cache.update(plot_regions(df, regions, last_date))
+            cache.update(create_layout(title=app_title, ds=last_date.strftime('%d %b %Y'),
+                                       keys=list(sorted(comparision_charts.keys())) + regions + ['Code'],
+                                       show_keys=short_list))
+            print(dt.datetime.now(), 'Cache Updated', flush=True)
         return True
     return False
 
@@ -280,19 +273,20 @@ def update_cache() -> bool:
 def update_cache_in_background():
     def loop_update_cache():
         global next_reload_data_at
-        with cache_loop_lock:
-            if platform.system() == 'Darwin':
-                __import__('caffeine')  # import has side-effects
-            while True:
-                try:
-                    update_cache()
-                except Exception as e:
-                    print(datetime.datetime.now(), 'Exception occurred while updating cache\n', str(e), flush=True)
-                    next_reload_data_at = time.time() + 3600
-                else:
-                    next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 14400
-                while (wait := next_reload_data_at - int(time.time())) > 0:
-                    time.sleep(wait / 2)
+        if not cache_loop_lock.locked():
+            with cache_loop_lock:
+                if platform.system() == 'Darwin':
+                    __import__('caffeine')  # import has side-effects
+                while True:
+                    try:
+                        update_cache()
+                    except Exception as e:
+                        print(dt.datetime.now(), 'Exception occurred updating cache\n', str(e), flush=True)
+                        next_reload_data_at = time.time() + 3600
+                    else:
+                        next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 14400
+                    while (wait := next_reload_data_at - int(time.time())) > 0:
+                        time.sleep(wait / 2)
 
     if not cache_loop_lock.locked():
         threading.Thread(target=loop_update_cache, daemon=True).start()
@@ -302,7 +296,7 @@ def update_cache_in_background():
 def status():
     msg = 'serving {} items\n'.format(len(cache.keys()))
     msg += 'update in progress' if cache_update_lock.locked() \
-        else 'next update at {}'.format(datetime.datetime.fromtimestamp(next_reload_data_at))
+        else 'next update at {}'.format(dt.datetime.fromtimestamp(next_reload_data_at))
     return msg
 
 
@@ -322,10 +316,7 @@ def reload_data():
 @server.route(kill_payload)
 def shutdown():
     cmd = flask.request.environ.get('werkzeug.server.shutdown')
-    if cmd is not None:
-        cmd()
-        return 'Killed'
-    return 'Oops ...'
+    return 'Oops ...' if cmd is None else 'Killed' if cmd() is None else 'Hmmm ...'
 
 
 if __name__ == '__main__':
@@ -351,8 +342,5 @@ if __name__ == '__main__':
         print(requests.get('http://{}:{}/status'.format(host, port)).content.decode())
     else:
         if args.dev:
-            import requests_cache
-
-            requests_cache.install_cache('cache', expire_after=12 * 3600)
-
+            __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
         app.run_server(host=host, port=port)
