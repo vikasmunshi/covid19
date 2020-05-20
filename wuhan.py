@@ -231,7 +231,7 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: datetime.datetime) 
             figure=df.loc[region][list(columns_in_regional_chart)].figure(
                 theme='polar', title=title, subplots=True, shape=(2, 3), legend=False,
                 colors=column_colors, subplot_titles=column_titles
-            ).update_layout(height=780, title_x=0.5)))
+            ).update_layout(height=780, title_x=0.5, hovermode='x')))
 
     return {region: plot_one(region) for region in regions}
 
