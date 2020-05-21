@@ -268,7 +268,7 @@ def update_cache() -> bool:
             df = transform_covid19_data(population)
             last_date = max(df.index.get_level_values(level=1))
             regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
-            short_list = regions[0:18] + ['Taiwan']
+            short_list = regions[0:32] + ['Taiwan']
             cache.update(comparision_charts := plot_comparision(df, short_list, last_date))
             cache.update(plot_regions(df, regions, last_date))
             cache.update(create_layout(keys=list(sorted(comparision_charts.keys())) + regions, shown_keys=short_list,
