@@ -191,8 +191,8 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     return {
         'Current Deaths': dhc.Div([chart for chart in [
-            plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']),
-            plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']), ]]),
+            plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']),
+            plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']), ]]),
         'Maps Cases': dhc.Div([chart for chart in [
             plot_geo('Cases', 'Total Cases', '#4C33FF'),
             plot_geo('WeeklyCases', 'Last 7 Days Total Cases', '#4C33FF'), ]]),
