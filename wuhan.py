@@ -73,19 +73,24 @@ URLS = {
 }
 
 
-def create_layout(title: str, keys: list, ds: str = '', show_keys: list = None) -> {str: dhc.Div}:
-    show_keys = keys[0] if show_keys is None else show_keys
-    return {'layout': dhc.Div([
-        dhc.H6([home_link, '{} {} (fetched {})'.format(title, ds, dt.datetime.now().strftime('%d %b %H:%M'))]),
-        dcc.Dropdown(id='region', options=[{'label': k, 'value': k} for k in keys], value=show_keys, multi=True),
-        dhc.Div(id='page-content')])}
+def create_layout(keys: list = None, shown_keys: list = None, ds: str = '', ) -> {str: dhc.Div}:
+    keys = ['Loading...'] if keys is None else keys
+    shown_keys = keys[0] if shown_keys is None else shown_keys
+    page_title = '{} {}'.format(app_title, ds)
+    return {
+        'Loading...': dhc.Div('Loading ...'),
+        'layout': dhc.Div([
+            dhc.H3([dhc.A(u'\u2388 ', href='/', style={'text-decoration': 'none'}, title='Refresh'), page_title]),
+            dcc.Dropdown(id='chart', options=[{'label': k, 'value': k} for k in keys], value=shown_keys, multi=True),
+            dhc.Div(id='page-content', style={'min-height': '600px'}),
+            dhc.I([dhc.A(u'\u2317 ', title='Code', href='/code', target='_blank', style={'text-decoration': 'none'}),
+                   'created: {}'.format(dt.datetime.now().strftime('%d %b %Y %H:%M')), ]), ]),
+    }
 
 
-home_link = dhc.A(u' \u2318 ', title='Reload Page', href='/', style={'text-decoration': 'none'})
-cache = {'Loading...': dhc.Div(['Loading ...', home_link]), **create_layout(title=app_title, keys=['Loading...'])}
+cache = create_layout()
 cache_loop_lock = threading.Lock()
 cache_update_lock = threading.Lock()
-next_reload_data_at = time.time()
 
 
 def format_num(n: int) -> str:
@@ -244,7 +249,7 @@ app.layout = lambda: cache['layout']
 server = app.server
 
 
-@app.callback(dash.dependencies.Output('page-content', 'children'), [dash.dependencies.Input('region', 'value')])
+@app.callback(dash.dependencies.Output('page-content', 'children'), [dash.dependencies.Input('chart', 'value')])
 def update_output(value):
     return [cache[v] for v in value] if isinstance(value, list) else cache[value]
 
@@ -260,9 +265,8 @@ def update_cache() -> bool:
             short_list = regions[0:18] + ['Taiwan']
             cache.update(comparision_charts := plot_comparision(df, short_list, last_date))
             cache.update(plot_regions(df, regions, last_date))
-            cache.update(create_layout(title=app_title, ds=last_date.strftime('%d %b %Y'),
-                                       keys=list(sorted(comparision_charts.keys())) + regions + ['Code'],
-                                       show_keys=short_list))
+            cache.update(create_layout(keys=list(sorted(comparision_charts.keys())) + regions, shown_keys=short_list,
+                                       ds=last_date.strftime('%d %b %Y')))
             print(dt.datetime.now(), 'Cache Updated', flush=True)
         return True
     return False
@@ -272,7 +276,6 @@ def update_cache() -> bool:
 @server.before_first_request
 def update_cache_in_background():
     def loop_update_cache():
-        global next_reload_data_at
         if not cache_loop_lock.locked():
             with cache_loop_lock:
                 if platform.system() == 'Darwin':
@@ -294,10 +297,7 @@ def update_cache_in_background():
 
 @server.route('/status')
 def status():
-    msg = 'serving {} items\n'.format(len(cache.keys()))
-    msg += 'update in progress' if cache_update_lock.locked() \
-        else 'next update at {}'.format(dt.datetime.fromtimestamp(next_reload_data_at))
-    return msg
+    return 'updating cache' if cache_update_lock.locked() else 'serving {} items from cache'.format(len(cache.keys()))
 
 
 @server.route('/code')
