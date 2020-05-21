@@ -194,20 +194,25 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
             plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']), ]]),
         'Maps Cases': dhc.Div([chart for chart in [
             plot_geo('Cases', 'Total Cases', '#4C33FF'),
-            plot_geo('CPM', 'Cases Per Million', '#C70039'), ]]),
+            plot_geo('WeeklyCases', 'Last 7 Days Total Cases', '#4C33FF'), ]]),
+        'Maps Cases Per Million': dhc.Div([chart for chart in [
+            plot_geo('CPM', 'Cases Per Million', '#4C33FF'),
+            plot_geo('WeeklyCPM', 'Last 7 Days Cases Per Million', '#4C33FF'), ]]),
         'Maps Deaths': dhc.Div([chart for chart in [
             plot_geo('Deaths', 'Total Deaths', '#C70039'),
+            plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'), ]]),
+        'Maps Deaths Per Million': dhc.Div([chart for chart in [
             plot_geo('DPM', 'Deaths Per Million', '#C70039'),
-            plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'),
             plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'), ]]),
         'Time-series Cases': dhc.Div([chart for chart in [
             plot_time_series('Cases', 'Total Cases', theme='polar'),
+            plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
             plot_time_series('CPM', 'Cases Per Million', theme='polar'),
-            plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'), ]]),
+            plot_time_series('WeeklyCPM', 'Weekly Cases (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
         'Time-series Deaths': dhc.Div([chart for chart in [
             plot_time_series('Deaths', 'Total Deaths', theme='polar'),
-            plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
             plot_time_series('WeeklyDeaths', 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
+            plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
             plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
         'Time-series Rates': dhc.Div([chart for chart in [
             plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
