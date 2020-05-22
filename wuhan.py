@@ -154,10 +154,10 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df['WeeklyCPM'] = 10 ** 6 * df.WeeklyCases / df.Population
     df['DPM'] = 10 ** 6 * df.Deaths / df.Population
     df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
-    df['DailyCases'] = df.WeeklyCases / 7
-    df['DailyRateCases'] = df.DailyCases.diff(7) / 7
-    df['DailyDeaths'] = df.WeeklyDeaths / 7
-    df['DailyRateDeaths'] = df.DailyDeaths.diff(7) / 7
+    df['DailyCPM'] = df.WeeklyCPM / 7
+    df['DailyRateCPM'] = df.DailyCPM.diff(7) / 7
+    df['DailyDPM'] = df.WeeklyDPM / 7
+    df['DailyRateDPM'] = df.DailyDPM.diff(7) / 7
     df['CFR'] = 100 * df.Deaths / df.Cases
     df['CRR'] = ((df.WeeklyCases / df.WeeklyCases.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
     df['DRR'] = ((df.WeeklyDeaths / df.WeeklyDeaths.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
@@ -221,22 +221,23 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
             plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
         'Time-series Rates': dhc.Div([chart for chart in [
             plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
-            plot_time_series('CRR', 'Case Reproduction Rate (last 7 days average)', theme='polar', logy=True), ]]),
+            plot_time_series('CRR', 'Reproduction Rate - Cases (last 7 days average)', theme='polar', logy=True),
+            plot_time_series('DRR', 'Reproduction Rate - Deaths (last 7 days average)', theme='polar', logy=True), ]]),
     }
 
 
 # Plot regional charts
 def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
     columns_in_chart, column_colors, column_titles = zip(
-        ('Cases', '#4C33FF', 'Total Confirmed Cases'),
-        ('Deaths', '#C70039', 'Total Attributed Deaths'),
+        ('CPM', '#4C33FF', 'Cases/Million'),
+        ('DPM', '#C70039', 'Deaths/Million'),
+        ('Cases', '#4C33FF', 'Total Cases'),
+        ('DailyCPM', '#4C33FF', 'Cases/Day/Million (7 day average)'),
+        ('DailyDPM', '#C70039', 'Deaths/Day/Million (7 day average)'),
+        ('Deaths', '#C70039', 'Attributed Deaths'),
+        ('DailyRateCPM', '#4C33FF', 'Growth Cases/Day/Million (7 day average)'),
+        ('DailyRateDPM', '#C70039', 'Growth Deaths/Day/Million (7 day average)'),
         ('CFR', '#FF00FF', 'Case Fatality Rate (%)'),
-        ('DailyCases', '#4C33FF', 'Cases/Day (7 day average)'),
-        ('DailyDeaths', '#C70039', 'Deaths/Day (7 day average)'),
-        ('CRR', '#FF00FF', 'Reproduction Rate - Cases'),
-        ('DailyRateCases', '#4C33FF', 'Growth Cases/Day (7 day average)'),
-        ('DailyRateDeaths', '#C70039', 'Growth Deaths/Day (7 day average)'),
-        ('DRR', '#FF00FF', 'Reproduction Rate - Deaths'),
     )
     summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
