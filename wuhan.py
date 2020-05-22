@@ -175,9 +175,8 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
     df_geo = df_current.drop('World').reset_index()
 
     # Plot current value of single metric for every country
-    def plot_current(col: str, label: str, drop_world: bool = False, cut_at: str = None, **kwargs) -> dcc.Graph:
-        ds = df_current[col].drop('World') if drop_world else df_current[col]
-        ds = ds.nlargest(42) if cut_at is None else ds[ds >= ds.loc[cut_at]]
+    def plot_current(col: str, label: str, **kwargs) -> dcc.Graph:
+        ds = df_current[col].drop('World').nlargest(42)
         return dcc.Graph(figure=ds.sort_values().figure(title=label, kind='bar', orientation='h', **kwargs)
                          .update_layout(height=800, title_x=0.5, hovermode='y'))
 
@@ -195,8 +194,8 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     return {
         'Current Deaths': dhc.Div([chart for chart in [
-            plot_current('Deaths', 'Deaths', theme='polar', drop_world=True, color=['#C70039']),
-            plot_current('DPM', 'Deaths Per Million', theme='polar', cut_at='World', color=['#C70039']), ]]),
+            plot_current('Deaths', 'Deaths', theme='polar', color=['#C70039']),
+            plot_current('DPM', 'Deaths Per Million', theme='polar', color=['#C70039']), ]]),
         'Maps Cases': dhc.Div([chart for chart in [
             plot_geo('Cases', 'Total Cases', '#4C33FF'),
             plot_geo('WeeklyCases', 'Last 7 Days Total Cases', '#4C33FF'), ]]),
