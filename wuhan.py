@@ -93,10 +93,10 @@ cache_loop_lock = threading.Lock()
 cache_update_lock = threading.Lock()
 
 
-def format_num(n: int) -> str:
+def format_num(n: float) -> str:
     suffixes = ['', ' Thousand', ' Million', ' Billion']
     i = max(0, min(3, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
-    return (str(i_n) if (i_n := int(n)) - n == 0 else '{:,.2f}'.format(n)) if i == 0 \
+    return ('{:,.0f}'.format(n) if int(n) == n else '{:,.2f}'.format(n)) if i <= 1 \
         else '{:,.3f}{}'.format(n / 10 ** (3 * i), suffixes[i])
 
 
@@ -154,8 +154,13 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df['WeeklyCPM'] = 10 ** 6 * df.WeeklyCases / df.Population
     df['DPM'] = 10 ** 6 * df.Deaths / df.Population
     df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
+    df['DailyCases'] = df.WeeklyCases / 7
+    df['DailyRateCases'] = df.DailyCases.diff(7) / 7
+    df['DailyDeaths'] = df.WeeklyDeaths / 7
+    df['DailyRateDeaths'] = df.DailyDeaths.diff(7) / 7
     df['CFR'] = 100 * df.Deaths / df.Cases
     df['CRR'] = ((df.WeeklyCases / df.WeeklyCases.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
+    df['DRR'] = ((df.WeeklyDeaths / df.WeeklyDeaths.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
     return df
 
 
@@ -178,10 +183,9 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     # Plot single metric for every country on a map
     def plot_geo(col: str, label: str, marker_color: str) -> dcc.Graph:
-        return dcc.Graph(figure=px.scatter_geo(
-            df_geo, projection='natural earth', title=label, locations='Code', size=col,
-            hover_name='Country', hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
-            color_discrete_sequence=[marker_color])
+        return dcc.Graph(figure=px.scatter_geo(df_geo, projection='natural earth', title=label, locations='Code',
+                                               size=col, hover_name='Country', color_discrete_sequence=[marker_color],
+                                               hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'], )
                          .update_layout(height=800, title_x=0.5)
                          .update_geos(resolution=50,
                                       showcountries=True, countrycolor='#663399',
@@ -223,24 +227,27 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
 # Plot regional charts
 def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
-    columns_in_regional_chart, column_colors, column_titles = zip(
-        ('Cases', '#4C33FF', 'Confirmed Cases'),
-        ('WeeklyCases', '#4C33FF', 'Cases Last 7 Days'),
-        ('CRR', '#FF00FF', 'Case Reproduction Rate (last 7 days average)'),
-        ('Deaths', '#C70039', 'Attributed Deaths'),
-        ('WeeklyDeaths', '#C70039', 'Deaths Last 7 Days'),
-        ('CFR', '#C70039', 'Case Fatality Rate (%)'),
+    columns_in_chart, column_colors, column_titles = zip(
+        ('Cases', '#4C33FF', 'Total Confirmed Cases'),
+        ('Deaths', '#C70039', 'Total Attributed Deaths'),
+        ('CFR', '#FF00FF', 'Case Fatality Rate (%)'),
+        ('DailyCases', '#4C33FF', 'Cases/Day (7 day average)'),
+        ('DailyDeaths', '#C70039', 'Deaths/Day (7 day average)'),
+        ('CRR', '#FF00FF', 'Reproduction Rate - Cases'),
+        ('DailyRateCases', '#4C33FF', 'Growth Cases/Day (7 day average)'),
+        ('DailyRateDeaths', '#C70039', 'Growth Deaths/Day (7 day average)'),
+        ('DRR', '#FF00FF', 'Reproduction Rate - Deaths'),
     )
+    summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
     def plot_one(region: str) -> dhc.Div:
-        p, c, d, dpm = [format_num(x) for x in df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'DPM']]]
-        title = '<b>{}</b><BR><i>{} People, {} Cases, {} Deaths, {} Deaths Per Million, As On {}</i><BR>'.format(
-            region, p, c, d, dpm, last_date.strftime('%d %b %Y'))
-        return dhc.Div(dcc.Graph(
-            figure=df.loc[region][list(columns_in_regional_chart)].figure(
-                theme='polar', title=title, subplots=True, shape=(2, 3), legend=False,
-                colors=column_colors, subplot_titles=column_titles
-            ).update_layout(height=780, title_x=0.5, hovermode='x')))
+        summary_values = [format_num(x) for x in df.loc[region].loc[last_date][summary_columns]]
+        title = '<b>{}</b><BR>{} People, {} Cases, {} Deaths, {} Deaths/Million, {}% Case Fatality Rate' \
+                '<i> as on {}</i><BR><BR>'.format(region, *summary_values, last_date.strftime('%d %b %Y'))
+        return dhc.Div(dcc.Graph(figure=df.loc[region][list(columns_in_chart)]
+                                 .figure(theme='polar', title=title, subplots=True, shape=(3, 3), legend=False,
+                                         colors=column_colors, subplot_titles=column_titles)
+                                 .update_layout(height=800, title_x=0.5, hovermode='x')))
 
     return {region: plot_one(region) for region in regions}
 
