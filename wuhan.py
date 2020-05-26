@@ -146,21 +146,25 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df = pd.merge(df, population, on=['Country'], how='left').dropna()
     df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
     df = df.set_index(['Country', 'Date'])
+
     df['WeeklyCases'] = df.Cases.diff(7)
-    df['WeeklyCases'][df['WeeklyCases'] < 0] = 0
-    df['WeeklyDeaths'] = df.Deaths.diff(7)
-    df['WeeklyDeaths'][df['WeeklyDeaths'] < 0] = 0
+    df['WeeklyCases'][df['WeeklyCases'] < 0] = np.nan
     df['CPM'] = 10 ** 6 * df.Cases / df.Population
     df['WeeklyCPM'] = 10 ** 6 * df.WeeklyCases / df.Population
-    df['DPM'] = 10 ** 6 * df.Deaths / df.Population
-    df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
     df['DailyCPM'] = df.WeeklyCPM / 7
     df['DailyRateCPM'] = df.DailyCPM.diff(7) / 7
+
+    df['WeeklyDeaths'] = df.Deaths.diff(7)
+    df['WeeklyDeaths'][df['WeeklyDeaths'] < 0] = np.nan
+    df['DPM'] = 10 ** 6 * df.Deaths / df.Population
+    df['WeeklyDPM'] = 10 ** 6 * df.WeeklyDeaths / df.Population
     df['DailyDPM'] = df.WeeklyDPM / 7
     df['DailyRateDPM'] = df.DailyDPM.diff(7) / 7
+
     df['CFR'] = 100 * df.Deaths / df.Cases
     df['CRR'] = ((df.WeeklyCases / df.WeeklyCases.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
     df['DRR'] = ((df.WeeklyDeaths / df.WeeklyDeaths.shift(7)) ** (1 / 7)).replace(np.inf, np.nan)
+
     return df
 
 
@@ -171,21 +175,20 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
         return dcc.Graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs)
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
-    df_current = df.xs(last_date, axis=0, level=1)
-    df_geo = df_current.drop('World').reset_index()
+    df_current = df.xs(last_date, axis=0, level=1).drop('World').fillna(0).reset_index()
 
     # Plot current value of single metric for every country
     def plot_current(col: str, label: str, **kwargs) -> dcc.Graph:
-        ds = df_current[col].drop('World').nlargest(42)
-        return dcc.Graph(figure=ds.sort_values().figure(title=label, kind='bar', orientation='h', **kwargs)
+        ds = df_current[['Country', col]].nlargest(42, columns=col).sort_values(by=col)
+        return dcc.Graph(figure=ds.figure(title=label, x='Country', y=col, kind='bar', orientation='h', **kwargs)
                          .update_layout(height=800, title_x=0.5, hovermode='y'))
 
-    # Plot single metric for every country on a map
+    # Plot single metric for every country on a map animated by Date
     def plot_geo(col: str, label: str, marker_color: str) -> dcc.Graph:
-        return dcc.Graph(figure=px.scatter_geo(df_geo, projection='natural earth', title=label, locations='Code',
-                                               size=col, hover_name='Country', color_discrete_sequence=[marker_color],
-                                               hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'], )
-                         .update_layout(height=800, title_x=0.5)
+        return dcc.Graph(figure=px.scatter_geo(df_current, title=label, locations='Code', size=col, height=800,
+                                               hover_name='Country', color_discrete_sequence=[marker_color],
+                                               hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'])
+                         .update_layout(title_x=0.5)
                          .update_geos(resolution=50,
                                       showcountries=True, countrycolor='#663399',
                                       showcoastlines=True, coastlinecolor='#663399',
