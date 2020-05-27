@@ -25,7 +25,7 @@ import requests
 
 __all__ = ['app', 'server']
 
-auth_file = 'auth.txt'
+auth_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth.txt')
 if not os.path.exists(auth_file):
     with open(auth_file, 'w') as o_file:
         o_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(128))) for n in range(99)]))
@@ -350,12 +350,20 @@ if __name__ == '__main__':
     host = (args.address or '127.0.0.1') if args.dev else (args.address or '0.0.0.0')
     port = (args.port or 8060) if args.dev else (args.port or 8050)
 
+
+    def client_cmd(payload: str) -> None:
+        try:
+            print(requests.get('http://{}:{}{}'.format(host, port, payload)).content.decode())
+        except requests.exceptions.ConnectionError:
+            print('http://{}:{} is down'.format(host, port))
+
+
     if args.kill:
-        print(requests.get('http://{}:{}{}'.format(host, port, kill_payload)).content.decode())
+        client_cmd(kill_payload)
     elif args.reload:
-        print(requests.get('http://{}:{}{}'.format(host, port, reload_data_payload)).content.decode())
+        client_cmd(reload_data_payload)
     elif args.status:
-        print(requests.get('http://{}:{}/status'.format(host, port)).content.decode())
+        client_cmd('/status')
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
