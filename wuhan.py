@@ -23,7 +23,7 @@ import pandas as pd
 import plotly.express as px
 import requests
 
-__all__ = ['app', 'server']
+__all__ = ['app', 'server', 'client']
 
 auth_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth.txt')
 if not os.path.exists(auth_file):
@@ -31,8 +31,10 @@ if not os.path.exists(auth_file):
         o_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(128))) for n in range(99)]))
 with open(auth_file) as in_file:
     auth_tokens = in_file.readlines()[42:69]
-kill_payload = '/kill/' + auth_tokens[0]
-reload_data_payload = '/reload/' + auth_tokens[-1]
+code_link = '/code'
+status_link = '/status'
+kill_link = '/kill/' + auth_tokens[0]
+reload_data_link = '/reload/' + auth_tokens[-1]
 app_title = 'Wuhan Corona Virus Pandemic Stats'
 # noinspection SpellCheckingInspection
 URLS = {
@@ -74,18 +76,20 @@ URLS = {
 
 
 def create_layout(keys: list = None, shown_keys: list = None, ds: str = '', ) -> {str: dhc.Div}:
-    keys = ['Loading...'] if keys is None else keys
-    shown_keys = keys[0] if shown_keys is None else shown_keys
+    keys = keys or ['Loading...']
+    shown_keys = shown_keys or keys[0]
     page_title = '{} {}'.format(app_title, ds)
+    report_date = dt.datetime.now().strftime('%H:%M %d-%b-%Y')
+    link_style = {'text-decoration': 'none'}
     return {
+        'report_date': report_date,
         'Loading...': dhc.Div('Loading ...'),
         'layout': dhc.Div([
-            dhc.H3([dhc.A(u'\u2388 ', href='/', style={'text-decoration': 'none'}, title='Refresh'), page_title]),
+            dhc.H3([dhc.A(u'\u2388 ', href='/', style=link_style, title='Refresh'), page_title]),
             dcc.Dropdown(id='chart', options=[{'label': k, 'value': k} for k in keys], value=shown_keys, multi=True),
             dhc.Div(id='page-content', style={'min-height': '600px'}),
-            dhc.I([dhc.A(u'\u2317 ', title='Code', href='/code', target='_blank', style={'text-decoration': 'none'}),
-                   'created: {}'.format(dt.datetime.now().strftime('%d %b %Y %H:%M')), ]), ]),
-    }
+            dhc.I([dhc.A(u'\u2317 ', title='Code', href=code_link, target='_blank', style=link_style),
+                   'created: {}'.format(report_date), ]), ]), }
 
 
 cache = create_layout()
@@ -98,6 +102,10 @@ def format_num(n: float) -> str:
     i = max(0, min(3, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
     return ('{:,.0f}'.format(n) if int(n) == n else '{:,.2f}'.format(n)) if i <= 1 \
         else '{:,.3f}{}'.format(n / 10 ** (3 * i), suffixes[i])
+
+
+def log_message(*msg: str) -> None:
+    print('- - -', dt.datetime.now().strftime('[%d/%b/%Y %H:%M:%S]'), ' '.join(msg), flush=True)
 
 
 # retrieve data from URL and return Pandas DataFrame
@@ -196,19 +204,20 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
                                       showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
     return {
+        'Current Cases': dhc.Div([chart for chart in [
+            plot_current('Cases', 'Cases', theme='polar', color=['#4C33FF']),
+            plot_current('CPM', 'Cases Per Million', theme='polar', color=['#4C33FF']), ]]),
         'Current Deaths': dhc.Div([chart for chart in [
             plot_current('Deaths', 'Deaths', theme='polar', color=['#C70039']),
             plot_current('DPM', 'Deaths Per Million', theme='polar', color=['#C70039']), ]]),
         'Maps Cases': dhc.Div([chart for chart in [
             plot_geo('Cases', 'Total Cases', '#4C33FF'),
-            plot_geo('WeeklyCases', 'Last 7 Days Total Cases', '#4C33FF'), ]]),
-        'Maps Cases Per Million': dhc.Div([chart for chart in [
+            plot_geo('WeeklyCases', 'Last 7 Days Total Cases', '#4C33FF'),
             plot_geo('CPM', 'Cases Per Million', '#4C33FF'),
             plot_geo('WeeklyCPM', 'Last 7 Days Cases Per Million', '#4C33FF'), ]]),
         'Maps Deaths': dhc.Div([chart for chart in [
             plot_geo('Deaths', 'Total Deaths', '#C70039'),
-            plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'), ]]),
-        'Maps Deaths Per Million': dhc.Div([chart for chart in [
+            plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'),
             plot_geo('DPM', 'Deaths Per Million', '#C70039'),
             plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'), ]]),
         'Time-series Cases': dhc.Div([chart for chart in [
@@ -243,7 +252,7 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
     )
     summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
-    def plot_one(region: str) -> dhc.Div:
+    def plot_region(region: str) -> dhc.Div:
         summary_values = [format_num(x) for x in df.loc[region].loc[last_date][summary_columns]]
         title = '<b>{}</b><BR>{} People, {} Cases, {} Deaths, {} Deaths/Million, {}% Case Fatality Rate' \
                 '<i> as on {}</i><BR><BR>'.format(region, *summary_values, last_date.strftime('%d %b %Y'))
@@ -252,7 +261,7 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
                                          colors=column_colors, subplot_titles=column_titles)
                                  .update_layout(height=800, title_x=0.5, hovermode='x')))
 
-    return {region: plot_one(region) for region in regions}
+    return {region: plot_region(region) for region in regions}
 
 
 # Cufflinks
@@ -273,7 +282,7 @@ def update_output(value):
 def update_cache() -> bool:
     if not cache_update_lock.locked():
         with cache_update_lock:
-            print(dt.datetime.now(), 'Updating Cache', flush=True)
+            log_message('Updating Cache')
             cache['population'] = population = cache.get('population', get_population())
             df = transform_covid19_data(population)
             last_date = max(df.index.get_level_values(level=1))
@@ -283,7 +292,7 @@ def update_cache() -> bool:
             cache.update(plot_regions(df, regions, last_date))
             cache.update(create_layout(keys=list(sorted(comparision_charts.keys())) + regions, shown_keys=short_list,
                                        ds=last_date.strftime('%d %b %Y')))
-            print(dt.datetime.now(), 'Cache Updated', flush=True)
+            log_message('Cache Updated')
         return True
     return False
 
@@ -300,23 +309,24 @@ def update_cache_in_background():
                     try:
                         update_cache()
                     except Exception as e:
-                        print(dt.datetime.now(), 'Exception occurred updating cache\n', str(e), flush=True)
+                        log_message('Exception occurred while updating cache\n', str(e))
                         next_reload_data_at = time.time() + 3600
                     else:
                         next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 14400
                     while (wait := next_reload_data_at - int(time.time())) > 0:
-                        time.sleep(min(wait / 2, 3600))
+                        time.sleep(wait / 2)
 
     if not cache_loop_lock.locked():
         threading.Thread(target=loop_update_cache, daemon=True).start()
 
 
-@server.route('/status')
+@server.route(status_link)
 def status():
-    return 'updating cache' if cache_update_lock.locked() else 'serving {} items from cache'.format(len(cache.keys()))
+    return 'updating cache' if cache_update_lock.locked() \
+        else 'serving {} items cached at {}'.format(len(cache), cache['report_date'])
 
 
-@server.route('/code')
+@server.route(code_link)
 def code():
     src = inspect.getsource(sys.modules[__name__]).splitlines()
     rows = len(src)
@@ -324,15 +334,22 @@ def code():
     return '{0}{1} rows={4} cols={5} {2}{3}{0}/{1}{2}'.format('<', 'textarea', '>', '\n'.join(src), rows, cols)
 
 
-@server.route(reload_data_payload)
+@server.route(reload_data_link)
 def reload_data():
     return 'Reloaded ...' if update_cache() else 'Reloading in progress ...'
 
 
-@server.route(kill_payload)
+@server.route(kill_link)
 def shutdown():
     cmd = flask.request.environ.get('werkzeug.server.shutdown')
     return 'Oops ...' if cmd is None else 'Killed' if cmd() is None else 'Hmmm ...'
+
+
+def client(host_address, client_port, payload) -> str:
+    try:
+        return requests.get('http://{}:{}{}'.format(host_address, client_port, payload)).content.decode()
+    except requests.exceptions.ConnectionError:
+        return ''
 
 
 if __name__ == '__main__':
@@ -347,23 +364,16 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--status', action='store_true', help='print server status')
     args = parser.parse_args()
 
-    host = (args.address or '127.0.0.1') if args.dev else (args.address or '0.0.0.0')
-    port = (args.port or 8060) if args.dev else (args.port or 8050)
+    host = args.address or ('127.0.0.1' if args.dev else '0.0.0.0')
+    port = args.port or (8060 if args.dev else 8050)
+    client_cmd = kill_link if args.kill else reload_data_link if args.reload else status_link if args.status else ''
 
-
-    def client_cmd(payload: str) -> None:
-        try:
-            print(requests.get('http://{}:{}{}'.format(host, port, payload)).content.decode())
-        except requests.exceptions.ConnectionError:
-            print('http://{}:{} is down'.format(host, port))
-
-
-    if args.kill:
-        client_cmd(kill_payload)
-    elif args.reload:
-        client_cmd(reload_data_payload)
-    elif args.status:
-        client_cmd('/status')
+    if client_cmd:
+        if response := client(host_address=host, client_port=port, payload=client_cmd):
+            log_message(response)
+        else:
+            log_message('http://{}:{} is down'.format(host, port))
+            exit(1)
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
