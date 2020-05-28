@@ -9,13 +9,13 @@ for arg; do
   fi
 done
 if [[ $# -eq 0 ]]; then
-  python wuhan.py ${DEV} -s || {
+  python3 wuhan.py ${DEV} -s || {
     echo 'starting server ...'
-    nohup python wuhan.py ${DEV} 1>wuhan${DEV}.log 2>&1 &
-    python wuhan.py ${DEV} -s >/dev/null
+    nohup python3 wuhan.py ${DEV} 1>wuhan${DEV}.log 2>&1 &
+    python3 wuhan.py ${DEV} -s >/dev/null
     sleep 1
-    python wuhan.py ${DEV} -s
+    python3 wuhan.py ${DEV} -s
   }
 else
-  python wuhan.py ${DEV} "$@"
+  python3 wuhan.py ${DEV} "$@"
 fi
