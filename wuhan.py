@@ -184,7 +184,7 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
     df_current = df.xs(last_date, axis=0, level=1).drop('World').fillna(0).reset_index()
-    rag_scale = [(0.0, 'green'), (0.01, 'yellow'), (0.1, 'orange'), (1.0, 'red')]
+    rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
 
     # Plot current value of single metric for every country
     def plot_current(col: str, label: str, **kwargs) -> dcc.Graph:
