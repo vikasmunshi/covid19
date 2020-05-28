@@ -184,6 +184,7 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
     df_current = df.xs(last_date, axis=0, level=1).drop('World').fillna(0).reset_index()
+    rag_scale = [(0.0, 'green'), (0.01, 'yellow'), (0.1, 'orange'), (1.0, 'red')]
 
     # Plot current value of single metric for every country
     def plot_current(col: str, label: str, **kwargs) -> dcc.Graph:
@@ -193,9 +194,9 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     # Plot single metric for every country on a map animated by Date
     def plot_geo(col: str, label: str, marker_color: str) -> dcc.Graph:
-        return dcc.Graph(figure=px.scatter_geo(df_current, title=label, locations='Code', size=col, height=800,
-                                               hover_name='Country', color_discrete_sequence=[marker_color],
-                                               hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'])
+        return dcc.Graph(figure=px.choropleth(df_current, title=label, height=800, locations='Code', color=col,
+                                              hover_name='Country', hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
+                                              color_continuous_scale=rag_scale)
                          .update_layout(title_x=0.5)
                          .update_geos(resolution=50,
                                       showcountries=True, countrycolor='#663399',
