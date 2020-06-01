@@ -192,11 +192,19 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
         return dcc.Graph(figure=ds.figure(title=label, x='Country', y=col, kind='bar', orientation='h', **kwargs)
                          .update_layout(height=800, title_x=0.5, hovermode='y'))
 
-    # Plot single metric for every country on a map animated by Date
-    def plot_geo(col: str, label: str, marker_color: str) -> dcc.Graph:
-        return dcc.Graph(figure=px.choropleth(df_current, title=label, height=800, locations='Code', color=col,
-                                              hover_name='Country', hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
-                                              color_continuous_scale=rag_scale)
+    # Plot Scatter of current values of two metrics for every country
+    def plot_scatter(x: str, y: str, label: str) -> dcc.Graph:
+        return dcc.Graph(figure=px.scatter(df_current, title=label, x=x, y=y, hover_name='Country')
+                         .update_layout(height=800, title_x=0.5))
+
+    # Plot single metric for every country on a map
+    def plot_geo(col: str, label: str, color_countries: bool, colors: list) -> dcc.Graph:
+        if color_countries:
+            plotter, plotter_args = px.choropleth, {'color': col, 'color_continuous_scale': colors}
+        else:
+            plotter, plotter_args = px.scatter_geo, {'size': col, 'color_discrete_sequence': colors}
+        return dcc.Graph(figure=plotter(df_current, title=label, height=800, locations='Code', hover_name='Country',
+                                        hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'], **plotter_args)
                          .update_layout(title_x=0.5)
                          .update_geos(resolution=50,
                                       showcountries=True, countrycolor='#663399',
@@ -205,36 +213,40 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
                                       showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
     return {
+        'Scatter': dhc.Div([chart for chart in [
+            plot_scatter(x='Deaths', y='Cases', label='Deaths vs Cases'),
+            plot_scatter(x='DPM', y='CPM', label='Deaths/Million vs Cases/Million'),
+            plot_scatter(x='DPM', y='CFR', label='Deaths/Million vs Case Fatality Rate'), ]]),
         'Current Cases': dhc.Div([chart for chart in [
-            plot_current('Cases', 'Cases', theme='polar', color=['#4C33FF']),
-            plot_current('CPM', 'Cases Per Million', theme='polar', color=['#4C33FF']), ]]),
+            plot_current(col='Cases', label='Cases', theme='polar', color=['#4C33FF']),
+            plot_current(col='CPM', label='Cases Per Million', theme='polar', color=['#4C33FF']), ]]),
         'Current Deaths': dhc.Div([chart for chart in [
-            plot_current('Deaths', 'Deaths', theme='polar', color=['#C70039']),
-            plot_current('DPM', 'Deaths Per Million', theme='polar', color=['#C70039']), ]]),
+            plot_current(col='Deaths', label='Deaths', theme='polar', color=['#C70039']),
+            plot_current(col='DPM', label='Deaths Per Million', theme='polar', color=['#C70039']), ]]),
         'Maps Cases': dhc.Div([chart for chart in [
-            plot_geo('Cases', 'Total Cases', '#4C33FF'),
-            plot_geo('WeeklyCases', 'Last 7 Days Total Cases', '#4C33FF'),
-            plot_geo('CPM', 'Cases Per Million', '#4C33FF'),
-            plot_geo('WeeklyCPM', 'Last 7 Days Cases Per Million', '#4C33FF'), ]]),
+            plot_geo(col='Cases', label='Total Cases', color_countries=True, colors=rag_scale),
+            plot_geo(col='WeeklyCases', label='Last Week Total Cases', color_countries=True, colors=rag_scale),
+            plot_geo(col='CPM', label='Cases/Million', color_countries=False, colors=['#4C33FF']),
+            plot_geo(col='WeeklyCPM', label='Last Week Cases/Million', color_countries=False, colors=['#4C33FF']), ]]),
         'Maps Deaths': dhc.Div([chart for chart in [
-            plot_geo('Deaths', 'Total Deaths', '#C70039'),
-            plot_geo('WeeklyDeaths', 'Last 7 Days Total Deaths', '#C70039'),
-            plot_geo('DPM', 'Deaths Per Million', '#C70039'),
-            plot_geo('WeeklyDPM', 'Last 7 Days Deaths Per Million', '#C70039'), ]]),
+            plot_geo(col='Deaths', label='Total Deaths', color_countries=True, colors=rag_scale),
+            plot_geo(col='WeeklyDeaths', label='Last Week Total Deaths', color_countries=True, colors=rag_scale),
+            plot_geo(col='DPM', label='Deaths/Million', color_countries=False, colors=['#C70039']),
+            plot_geo(col='WeeklyDPM', label='Last Week Deaths/Million', color_countries=False, colors=['#C70039']), ]]),
         'Time-series Cases': dhc.Div([chart for chart in [
-            plot_time_series('Cases', 'Total Cases', theme='polar'),
-            plot_time_series('WeeklyCases', 'Weekly Cases (last 7 days)', theme='solar', kind='bar'),
-            plot_time_series('CPM', 'Cases Per Million', theme='polar'),
-            plot_time_series('WeeklyCPM', 'Weekly Cases (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
+            plot_time_series(col='Cases', label='Total Cases', theme='polar'),
+            plot_time_series(col='WeeklyCases', label='Weekly Cases (last 7 days)', theme='solar', kind='bar'),
+            plot_time_series(col='CPM', label='Cases Per Million', theme='polar'),
+            plot_time_series(col='WeeklyCPM', label='Weekly Cases/Million', theme='solar', kind='bar'), ]]),
         'Time-series Deaths': dhc.Div([chart for chart in [
-            plot_time_series('Deaths', 'Total Deaths', theme='polar'),
-            plot_time_series('WeeklyDeaths', 'Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
-            plot_time_series('DPM', 'Deaths Per Million', theme='polar'),
-            plot_time_series('WeeklyDPM', 'Weekly Deaths (last 7 days) Per Million', theme='solar', kind='bar'), ]]),
+            plot_time_series(col='Deaths', label='Total Deaths', theme='polar'),
+            plot_time_series(col='WeeklyDeaths', label='Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
+            plot_time_series(col='DPM', label='Deaths Per Million', theme='polar'),
+            plot_time_series(col='WeeklyDPM', label='Weekly Deaths/Million', theme='solar', kind='bar'), ]]),
         'Time-series Rates': dhc.Div([chart for chart in [
-            plot_time_series('CFR', 'Case Fatality Rate (%)', theme='polar'),
-            plot_time_series('CRR', 'Reproduction Rate - Cases (last 7 days average)', theme='polar', logy=True),
-            plot_time_series('DRR', 'Reproduction Rate - Deaths (last 7 days average)', theme='polar', logy=True), ]]),
+            plot_time_series(col='CFR', label='Case Fatality Rate (%)', theme='polar'),
+            plot_time_series(col='CRR', label='7 Day Mean Reproduction Rate - Cases', theme='polar', logy=True),
+            plot_time_series(col='DRR', label='7 Day Mean Reproduction Rate - Deaths', theme='polar', logy=True), ]]),
     }
 
 
