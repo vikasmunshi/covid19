@@ -194,7 +194,8 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     # Plot Scatter of current values of two metrics for every country
     def plot_scatter(x: str, y: str, label: str) -> dcc.Graph:
-        return dcc.Graph(figure=px.scatter(df_current, title=label, x=x, y=y, hover_name='Country')
+        return dcc.Graph(figure=px.scatter(df_current, title=label, x=x, y=y, hover_name='Country',
+                                           hover_data=['Cases', 'Deaths', 'CPM', 'DPM', 'CFR'])
                          .update_layout(height=800, title_x=0.5))
 
     # Plot single metric for every country on a map
@@ -214,9 +215,9 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     return {
         'Scatter': dhc.Div([chart for chart in [
-            plot_scatter(x='Deaths', y='Cases', label='Deaths vs Cases'),
-            plot_scatter(x='DPM', y='CPM', label='Deaths/Million vs Cases/Million'),
-            plot_scatter(x='DPM', y='CFR', label='Deaths/Million vs Case Fatality Rate'), ]]),
+            plot_scatter(x='Cases', y='Deaths', label='Cases vs Deaths'),
+            plot_scatter(x='CPM', y='DPM', label='Cases/Million vs Deaths/Million'),
+            plot_scatter(x='CFR', y='DPM', label='Case Fatality Rate vs Deaths/Million'), ]]),
         'Current Cases': dhc.Div([chart for chart in [
             plot_current(col='Cases', label='Cases', theme='polar', color=['#4C33FF']),
             plot_current(col='CPM', label='Cases Per Million', theme='polar', color=['#4C33FF']), ]]),
