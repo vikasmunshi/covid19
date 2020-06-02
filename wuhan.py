@@ -153,7 +153,6 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df = pd.concat([df, df.groupby('Date').sum().reset_index('Date').sort_values('Date')]).fillna('World')
     df = pd.merge(df, population, on=['Country'], how='left').dropna()
     df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
-    df = df[(df.Deaths >= 100) | (df.Country == 'Taiwan')]
     df = df.set_index(['Country', 'Date'])
 
     df['WeeklyCases'] = df.Cases.diff(7)
@@ -185,6 +184,7 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
     df_current = df.xs(last_date, axis=0, level=1).drop('World').fillna(0).reset_index()
+    df_current = df_current[df_current.Deaths >= 100]
     rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
 
     # Plot current value of single metric for every country
@@ -215,8 +215,7 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     return {
         'Scatter': dhc.Div([chart for chart in [
-            plot_scatter(x='CPM', y='DPM', label='Cases/Million vs Deaths/Million', size='Deaths'),
-            plot_scatter(x='CPM', y='DPM', label='Cases/Million vs Deaths/Million', color='CFR'), ]]),
+            plot_scatter(x='Cases', y='Deaths', label='Cases vs Deaths', size='DPM', color='CFR'), ]]),
         'Current Cases': dhc.Div([chart for chart in [
             plot_current(col='Cases', label='Cases', theme='polar', color=['#4C33FF']),
             plot_current(col='CPM', label='Cases Per Million', theme='polar', color=['#4C33FF']), ]]),
