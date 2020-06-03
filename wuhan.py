@@ -389,4 +389,6 @@ if __name__ == '__main__':
     else:
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
+        __import__('atexit').register(log_message, 'http://{}:{} down'.format(host, port))
+        log_message('http://{}:{} up'.format(host, port))
         app.run_server(host=host, port=port)
