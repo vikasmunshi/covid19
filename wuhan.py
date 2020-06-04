@@ -190,13 +190,14 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
         return dcc.Graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs)
                          .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
 
-    df_current = df.xs(last_date, axis=0, level=1).drop('World').fillna(0).reset_index()
+    df_current = df.xs(last_date, axis=0, level=1).fillna(0).reset_index()
     df_current = df_current[df_current.Deaths >= 100]
+    df_geo = df_current[~df_current.Country.isin(['World', 'European Union'])]
     rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
 
     # Plot current value of single metric for every country
-    def plot_current(col: str, label: str, **kwargs) -> dcc.Graph:
-        ds = df_current[['Country', col]].nlargest(42, columns=col).sort_values(by=col)
+    def plot_current(col: str, label: str, drop: list, **kwargs) -> dcc.Graph:
+        ds = df_current[~df_current.Country.isin(drop)][['Country', col]].nlargest(42, columns=col).sort_values(by=col)
         return dcc.Graph(figure=ds.figure(title=label, x='Country', y=col, kind='bar', orientation='h', **kwargs)
                          .update_layout(height=800, title_x=0.5, hovermode='y'))
 
@@ -209,36 +210,39 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
         return dcc.Graph(figure=px.scatter(df_current, **params).update_layout(height=800, title_x=0.5))
 
     # Plot single metric for every country on a map
-    def plot_geo(col: str, label: str, color_countries: bool, colors: list) -> dcc.Graph:
+    def plot_geo(col: str, label: str, color_countries: bool, colors: list = ()) -> dcc.Graph:
+        colors = rag_scale if color_countries else colors if colors else ['#4C33FF']
         plotter = px.choropleth if color_countries else px.scatter_geo
         params = {'title': label, 'locations': 'Code',
                   'hover_name': 'Country', 'hover_data': ['Population', 'Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
                   **({'color': col, 'color_continuous_scale': colors} if color_countries
                      else {'size': col, 'color_discrete_sequence': colors})}
-        return dcc.Graph(figure=plotter(df_current, **params).update_layout(height=800, title_x=0.5).update_geos(
-            resolution=50, showcountries=True, countrycolor='#663399', showcoastlines=True, coastlinecolor='#663399',
-            showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
-            showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
+        return dcc.Graph(figure=plotter(df_geo, **params)
+                         .update_layout(height=800, title_x=0.5)
+                         .update_geos(resolution=50, showcountries=True, countrycolor='#663399',
+                                      showcoastlines=True, coastlinecolor='#663399',
+                                      showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
+                                      showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
     return {
         'Scatter': dhc.Div([chart for chart in [
             plot_scatter(x='Cases', y='Deaths', label='Cases vs Deaths', size='DPM', color='CFR'), ]]),
         'Current Cases': dhc.Div([chart for chart in [
-            plot_current(col='Cases', label='Cases', theme='polar', color=['#4C33FF']),
-            plot_current(col='CPM', label='Cases Per Million', theme='polar', color=['#4C33FF']), ]]),
+            plot_current(col='Cases', label='Cases', drop=['World'], theme='polar', color=['#4C33FF']),
+            plot_current(col='CPM', label='Cases Per Million', drop=[], theme='polar', color=['#4C33FF']), ]]),
         'Current Deaths': dhc.Div([chart for chart in [
-            plot_current(col='Deaths', label='Deaths', theme='polar', color=['#C70039']),
-            plot_current(col='DPM', label='Deaths Per Million', theme='polar', color=['#C70039']), ]]),
+            plot_current(col='Deaths', label='Deaths', drop=['World'], theme='polar', color=['#C70039']),
+            plot_current(col='DPM', label='Deaths Per Million', drop=[], theme='polar', color=['#C70039']), ]]),
         'Maps Cases': dhc.Div([chart for chart in [
-            plot_geo(col='Cases', label='Total Cases', color_countries=True, colors=rag_scale),
-            plot_geo(col='WeeklyCases', label='Last Week Total Cases', color_countries=True, colors=rag_scale),
+            plot_geo(col='Cases', label='Total Cases', color_countries=True),
+            plot_geo(col='WeeklyCases', label='Last Week Total Cases', color_countries=True),
             plot_geo(col='CPM', label='Cases/Million', color_countries=True, colors=rag_scale),
-            plot_geo(col='WeeklyCPM', label='Last Week Cases/Million', color_countries=True, colors=rag_scale), ]]),
+            plot_geo(col='WeeklyCPM', label='Last Week Cases/Million', color_countries=True), ]]),
         'Maps Deaths': dhc.Div([chart for chart in [
-            plot_geo(col='Deaths', label='Total Deaths', color_countries=True, colors=rag_scale),
-            plot_geo(col='WeeklyDeaths', label='Last Week Total Deaths', color_countries=True, colors=rag_scale),
-            plot_geo(col='DPM', label='Deaths/Million', color_countries=True, colors=rag_scale),
-            plot_geo(col='WeeklyDPM', label='Last Week Deaths/Million', color_countries=True, colors=rag_scale), ]]),
+            plot_geo(col='Deaths', label='Total Deaths', color_countries=True),
+            plot_geo(col='WeeklyDeaths', label='Last Week Total Deaths', color_countries=True),
+            plot_geo(col='DPM', label='Deaths/Million', color_countries=True),
+            plot_geo(col='WeeklyDPM', label='Last Week Deaths/Million', color_countries=True), ]]),
         'Time-series Cases': dhc.Div([chart for chart in [
             plot_time_series(col='Cases', label='Total Cases', theme='polar'),
             plot_time_series(col='WeeklyCases', label='Weekly Cases (last 7 days)', theme='solar', kind='bar'),
