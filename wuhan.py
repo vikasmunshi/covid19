@@ -73,6 +73,9 @@ URLS = {
                  '%3A%2F%2Fraw.githubusercontent.com%2FCSSEGISandData%2FCOVID-19%2Fmaster%2Fcsse_covid_19_data'
                  '%2Fcsse_covid_19_time_series%2Ftime_series_covid19_recovered_global.csv',
 }
+EU = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czechia', 'Denmark', 'Estonia', 'Finland', 'France',
+      'Germany', 'Greece', 'Hungary', 'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands',
+      'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden']
 
 
 def create_layout(keys: list = None, shown_keys: list = None, ds: str = '', ) -> {str: dhc.Div}:
@@ -150,7 +153,11 @@ def get_covid19_data(metric: str) -> pd.DataFrame:
 def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df = get_covid19_data('cases')
     df = pd.merge(df, get_covid19_data('deaths'), on=['Country', 'Date'], how='inner')
-    df = pd.concat([df, df.groupby('Date').sum().reset_index('Date').sort_values('Date')]).fillna('World')
+    eu = df[df.Country.isin(EU)].groupby('Date').sum().reset_index('Date').sort_values('Date')
+    eu['Country'] = 'European Union'
+    world = df.groupby('Date').sum().reset_index('Date').sort_values('Date')
+    world['Country'] = 'World'
+    df = pd.concat([df, eu, world])
     df = pd.merge(df, population, on=['Country'], how='left').dropna()
     df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
     df = df.set_index(['Country', 'Date'])
