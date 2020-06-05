@@ -16,7 +16,8 @@ if [[ $# -eq 0 ]]; then
   [[ "$RESTART" == "restart" ]] && python3 wuhan.py ${DEV} -k
   python3 wuhan.py ${DEV} -s || {
     echo 'starting server ...'
-    [[ -f wuhan${DEV}.log ]] && cat wuhan${DEV}.log >>wuhan${DEV}.old.log && rm -f wuhan${DEV}.log
+    [[ "${DEV}" != "-d" && -f wuhan${DEV}.log ]] && cat wuhan${DEV}.log >>wuhan${DEV}.old.log
+    rm -f wuhan${DEV}.log
     nohup python3 wuhan.py ${DEV} 1>wuhan${DEV}.log 2>&1 &
     sleep 1
     python3 wuhan.py ${DEV} -s >/dev/null

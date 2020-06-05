@@ -183,31 +183,36 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# Convert Figure to Graph
+def graph(figure, **kwargs) -> dcc.Graph:
+    return dcc.Graph(figure=figure.update_layout(height=800, title_x=0.5, **kwargs))
+
+
 # Plot overview with country comparisons
 def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
+    df_now = df.xs(last_date, axis=0, level=1).fillna(0).reset_index()
+    df_geo = df_now[~df_now.Country.isin(['World', 'European Union'])]
+    rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
+
     # Plot single metric for select countries
     def plot_time_series(col: str, label: str, **kwargs) -> dcc.Graph:
-        return dcc.Graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs)
-                         .update_layout(height=800, title_x=0.5, legend_orientation='h', hovermode='x'))
-
-    df_current = df.xs(last_date, axis=0, level=1).fillna(0).reset_index()
-    df_current = df_current[df_current.Deaths >= 100]
-    df_geo = df_current[~df_current.Country.isin(['World', 'European Union'])]
-    rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
+        return graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs),
+                     legend_orientation='h', hovermode='x')
 
     # Plot current value of single metric for every country
     def plot_current(col: str, label: str, drop: list, **kwargs) -> dcc.Graph:
-        ds = df_current[~df_current.Country.isin(drop)][['Country', col]].nlargest(42, columns=col).sort_values(by=col)
-        return dcc.Graph(figure=ds.figure(title=label, x='Country', y=col, kind='bar', orientation='h', **kwargs)
-                         .update_layout(height=800, title_x=0.5, hovermode='y'))
+        ds = df_now[~df_now.Country.isin(drop)][['Country', col]].nlargest(42, columns=col).sort_values(by=col)
+        return graph(figure=ds.figure(title=label, x='Country', y=col, kind='bar', orientation='h', **kwargs),
+                     hovermode='y')
 
-    # Plot Scatter of current values of two metrics for every country
-    def plot_scatter(x: str, y: str, label: str, color: str = '', size: str = '') -> dcc.Graph:
+    # Plot Scatter of current values of two metrics for every country, optional size and/or color
+    def plot_scatter(x: str, y: str, label: str, color: str = '', size: str = '',
+                     drop: list = (), cutoff: int = 0) -> dcc.Graph:
         params = {'x': x, 'y': y, 'title': label,
                   'hover_name': 'Country', 'hover_data': ['Population', 'Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
                   **({'color': color, 'color_continuous_scale': rag_scale} if color else {}),
                   **({'size': size} if size else {})}
-        return dcc.Graph(figure=px.scatter(df_current, **params).update_layout(height=800, title_x=0.5))
+        return graph(figure=px.scatter(df_now[(~df_now.Country.isin(drop)) & (df_now.Deaths > cutoff)], **params))
 
     # Plot single metric for every country on a map
     def plot_geo(col: str, label: str, color_countries: bool, colors: list = ()) -> dcc.Graph:
@@ -217,16 +222,15 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
                   'hover_name': 'Country', 'hover_data': ['Population', 'Cases', 'Deaths', 'CPM', 'DPM', 'CFR'],
                   **({'color': col, 'color_continuous_scale': colors} if color_countries
                      else {'size': col, 'color_discrete_sequence': colors})}
-        return dcc.Graph(figure=plotter(df_geo, **params)
-                         .update_layout(height=800, title_x=0.5)
-                         .update_geos(resolution=50, showcountries=True, countrycolor='#663399',
-                                      showcoastlines=True, coastlinecolor='#663399',
-                                      showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
-                                      showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
+        return graph(figure=plotter(df_geo, **params).update_geos(
+            resolution=50, showcountries=True, countrycolor='#663399', showcoastlines=True, coastlinecolor='#663399',
+            showland=True, landcolor='#E3E3E3', showocean=True, oceancolor='#ADD8E6',
+            showlakes=True, lakecolor='#ADD8E6', showrivers=True, rivercolor='#ADD8E6'))
 
     return {
         'Scatter': dhc.Div([chart for chart in [
-            plot_scatter(x='Cases', y='Deaths', label='Cases vs Deaths', size='DPM', color='CFR'), ]]),
+            plot_scatter(x='CPM', y='DPM', label='Cases per Million vs Deaths per Million', size='Deaths',
+                         drop=['World'], cutoff=100), ]]),
         'Current Cases': dhc.Div([chart for chart in [
             plot_current(col='Cases', label='Cases', drop=['World'], theme='polar', color=['#4C33FF']),
             plot_current(col='CPM', label='Cases Per Million', drop=[], theme='polar', color=['#4C33FF']), ]]),
@@ -262,7 +266,7 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
 # Plot regional charts
 def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
-    columns_in_chart, column_colors, column_titles = zip(
+    columns, colors, titles = (list(x) for x in zip(
         ('CPM', '#4C33FF', 'Cases/Million'),
         ('DPM', '#C70039', 'Deaths/Million'),
         ('Cases', '#4C33FF', 'Total Cases'),
@@ -272,19 +276,18 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
         ('DailyRateCPM', '#4C33FF', 'Growth Cases/Day/Million (7 day average)'),
         ('DailyRateDPM', '#C70039', 'Growth Deaths/Day/Million (7 day average)'),
         ('CFR', '#FF00FF', 'Case Fatality Rate (%)'),
-    )
+    ))
     summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
-    def plot_region(region: str) -> dhc.Div:
+    def plot_region(region: str) -> dcc.Graph:
         summary_values = [format_num(x) for x in df.loc[region].loc[last_date][summary_columns]]
         title = '<b>{}</b><BR>{} People, {} Cases, {} Deaths, {} Deaths/Million, {}% Case Fatality Rate' \
                 '<i> as on {}</i><BR><BR>'.format(region, *summary_values, last_date.strftime('%d %b %Y'))
-        return dhc.Div(dcc.Graph(figure=df.loc[region][list(columns_in_chart)]
-                                 .figure(theme='polar', title=title, subplots=True, shape=(3, 3), legend=False,
-                                         colors=column_colors, subplot_titles=column_titles)
-                                 .update_layout(height=800, title_x=0.5, hovermode='x')))
+        return graph(figure=df.loc[region][columns].figure(theme='polar', title=title, subplots=True, shape=(3, 3),
+                                                           legend=False, colors=colors, subplot_titles=titles),
+                     hovermode='x')
 
-    return {region: plot_region(region) for region in regions}
+    return {region: dhc.Div(plot_region(region)) for region in regions}
 
 
 # Cufflinks
