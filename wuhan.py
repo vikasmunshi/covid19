@@ -193,10 +193,14 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
     df_now = df.xs(last_date, axis=0, level=1).fillna(0).reset_index()
     df_geo = df_now[~df_now.Country.isin(['World', 'European Union'])]
     rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
+    color_palette = ['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616',
+                     '#479B55', '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5',
+                     '#FF0092', '#22FFA7', '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72']
 
     # Plot single metric for select countries
     def plot_time_series(col: str, label: str, **kwargs) -> dcc.Graph:
-        return graph(figure=df[col].unstack().transpose()[regions].figure(title=label, **kwargs),
+        return graph(figure=df[col].unstack().transpose()[regions]
+                     .figure(title=label, colors=color_palette, theme='solar', **kwargs),
                      legend_orientation='h', hovermode='x')
 
     # Plot current value of single metric for every country
@@ -248,19 +252,19 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
             plot_geo(col='DPM', label='Deaths/Million', color_countries=True),
             plot_geo(col='WeeklyDPM', label='Last Week Deaths/Million', color_countries=True), ]]),
         'Time-series Cases': dhc.Div([chart for chart in [
-            plot_time_series(col='Cases', label='Total Cases', theme='polar'),
-            plot_time_series(col='WeeklyCases', label='Weekly Cases (last 7 days)', theme='solar', kind='bar'),
-            plot_time_series(col='CPM', label='Cases Per Million', theme='polar'),
-            plot_time_series(col='WeeklyCPM', label='Weekly Cases/Million', theme='solar', kind='bar'), ]]),
+            plot_time_series(col='Cases', label='Total Cases'),
+            plot_time_series(col='WeeklyCases', label='Weekly Cases (last 7 days)', kind='bar'),
+            plot_time_series(col='CPM', label='Cases Per Million'),
+            plot_time_series(col='WeeklyCPM', label='Weekly Cases/Million', kind='bar'), ]]),
         'Time-series Deaths': dhc.Div([chart for chart in [
-            plot_time_series(col='Deaths', label='Total Deaths', theme='polar'),
-            plot_time_series(col='WeeklyDeaths', label='Weekly Deaths (last 7 days)', theme='solar', kind='bar'),
-            plot_time_series(col='DPM', label='Deaths Per Million', theme='polar'),
-            plot_time_series(col='WeeklyDPM', label='Weekly Deaths/Million', theme='solar', kind='bar'), ]]),
+            plot_time_series(col='Deaths', label='Total Deaths'),
+            plot_time_series(col='WeeklyDeaths', label='Weekly Deaths (last 7 days)', kind='bar'),
+            plot_time_series(col='DPM', label='Deaths Per Million'),
+            plot_time_series(col='WeeklyDPM', label='Weekly Deaths/Million', kind='bar'), ]]),
         'Time-series Rates': dhc.Div([chart for chart in [
-            plot_time_series(col='CFR', label='Case Fatality Rate (%)', theme='polar'),
-            plot_time_series(col='CRR', label='7 Day Mean Reproduction Rate - Cases', theme='polar', logy=True),
-            plot_time_series(col='DRR', label='7 Day Mean Reproduction Rate - Deaths', theme='polar', logy=True), ]]),
+            plot_time_series(col='CFR', label='Case Fatality Rate (%)'),
+            plot_time_series(col='CRR', label='7 Day Mean Reproduction Rate - Cases', logy=True),
+            plot_time_series(col='DRR', label='7 Day Mean Reproduction Rate - Deaths', logy=True), ]]),
     }
 
 
