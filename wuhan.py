@@ -38,7 +38,8 @@ reload_data_link = '/reload/' + auth_tokens[-1]
 app_title = 'Wuhan Corona Virus Pandemic Stats'
 # noinspection SpellCheckingInspection
 URLS = {
-    'population': 'http://api.worldbank.org/countries/all/indicators/SP.POP.TOTL?format=csv',
+    'population': 'https://datahub.io/JohnSnowLabs/population-figures-by-country/r/population-figures-by-country-csv'
+                  '.csv',
     'cases': 'https://data.humdata.org/hxlproxy/data/download/time_series_covid19_confirmed_global_narrow.csv?dest'
              '=data_edit&filter01=explode&explode-header-att01=date&explode-value-att01=value&filter02=rename&rename'
              '-oldtag02=%23affected%2Bdate&rename-newtag02=%23date&rename-header02=Date&filter03=rename&rename'
@@ -118,17 +119,16 @@ def data_frame_from_url(url: str) -> pd.DataFrame:
 
 # Population Data
 def get_population() -> pd.DataFrame:
-    population = data_frame_from_url(URLS['population'])[['Country Name', 'Country Code', '2018']]
+    population = data_frame_from_url(URLS['population'])[['Country', 'Country_Code', 'Year_2016']]
     population.columns = ['Country', 'Code', 'Population']
     for country, name_change, missing_data in [
         ['Bahamas, The', 'Bahamas', None], ['Brunei Darussalam', 'Brunei', None],
         ['Congo, Dem. Rep.', 'Congo (Kinshasa)', None], ['Congo, Rep.', 'Congo (Brazzaville)', None],
         ['Czech Republic', 'Czechia', None], ['Egypt, Arab Rep.', 'Egypt', None], ['Gambia, The', 'Gambia', None],
         ['Iran, Islamic Rep.', 'Iran', None], ['Korea, Rep.', 'Korea, South', None],
-        ['Kyrgyz Republic', 'Kyrgyzstan', None], ['Lao PDR', 'Laos', None], ['Myanmar', 'Burma', None],
-        ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
-        ['Syrian Arab Republic', 'Syria', None], ['United States', 'US', None],
-        ['Venezuela, RB', 'Venezuela', None],
+        ['Kyrgyz Republic', 'Kyrgyzstan', None], ['Lao PDR', 'Laos', None], ['Macedonia, FYR', 'North Macedonia', None],
+        ['Myanmar', 'Burma', None], ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
+        ['Syrian Arab Republic', 'Syria', None], ['United States', 'US', None], ['Venezuela, RB', 'Venezuela', None],
         ['Yemen, Rep.', 'Yemen', None], ['Taiwan', None, ['TWN', 23780452]]
     ]:
         if name_change:
