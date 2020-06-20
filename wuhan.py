@@ -128,8 +128,8 @@ def get_population() -> pd.DataFrame:
         ['Iran, Islamic Rep.', 'Iran', None], ['Korea, Rep.', 'Korea, South', None],
         ['Kyrgyz Republic', 'Kyrgyzstan', None], ['Lao PDR', 'Laos', None], ['Macedonia, FYR', 'North Macedonia', None],
         ['Myanmar', 'Burma', None], ['Russian Federation', 'Russia', None], ['Slovak Republic', 'Slovakia', None],
-        ['Syrian Arab Republic', 'Syria', None], ['United States', 'US', None], ['Venezuela, RB', 'Venezuela', None],
-        ['Yemen, Rep.', 'Yemen', None], ['Taiwan', None, ['TWN', 23780452]]
+        ['Syrian Arab Republic', 'Syria', None], ['Venezuela, RB', 'Venezuela', None], ['Yemen, Rep.', 'Yemen', None],
+        ['Taiwan', None, ['TWN', 23780452]]
     ]:
         if name_change:
             population.Country = population.Country.str.replace(pat=country, repl=name_change, regex=False)
@@ -145,7 +145,9 @@ def get_covid19_data(metric: str) -> pd.DataFrame:
     df.Value = df.Value.astype(int)
     df = df.groupby(['Country/Region', 'Date']).sum().reset_index()
     df.columns = ['Country', 'Date', metric.title()]
-    df.Country = df.Country.str.replace(pat='Taiwan*', repl='Taiwan', regex=False)
+    df.Country = df.Country \
+        .str.replace(pat='Taiwan*', repl='Taiwan', regex=False) \
+        .str.replace(pat='US', repl='United States', regex=False)
     return df.sort_values(by=['Country', 'Date'])
 
 
