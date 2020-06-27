@@ -346,6 +346,7 @@ def update_cache_in_background():
                     else:
                         next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 14400
                     while (wait := next_reload_data_at - int(time.time())) > 0:
+                        log_message('next reload ' + dt.datetime.fromtimestamp(next_reload_data_at).strftime('%H:%M'))
                         time.sleep(wait / 2)
 
     if not cache_loop_lock.locked():
