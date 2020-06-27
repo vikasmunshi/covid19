@@ -329,7 +329,7 @@ def update_cache() -> bool:
     return False
 
 
-# Refresh every 12th hour (43200 seconds) offset by 6 hrs (21600 - 7200 CET offset from UTC) i.e. 06:00, 18:00 CET
+# Refresh every 12th hour (43200 seconds) offset by 8 hrs (28800 - 7200 CET offset from UTC) i.e. 08:00, 20:00 CET
 @server.before_first_request
 def update_cache_in_background():
     def loop_update_cache():
@@ -344,7 +344,7 @@ def update_cache_in_background():
                         log_message('Exception occurred while updating cache\n', str(e))
                         next_reload_data_at = time.time() + 3600
                     else:
-                        next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 14400
+                        next_reload_data_at = ((1 + (int(time.time()) // 43200)) * 43200) + 21600
                     while (wait := next_reload_data_at - int(time.time())) > 0:
                         log_message('next reload ' + dt.datetime.fromtimestamp(next_reload_data_at).strftime('%H:%M'))
                         time.sleep(wait / 2)
