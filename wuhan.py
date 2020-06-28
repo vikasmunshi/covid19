@@ -169,14 +169,12 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df['DailyRateCases'] = df.DailyCases.diff(1)
     df['DailyMeanCases'] = df.Cases.diff(7) / 7
     df['DailyMeanCases'][df['DailyMeanCases'] < 0] = np.nan
-    df['DailyMeanRateCases'] = df.DailyMeanCases.diff(7) / 7
 
     df['DailyDeaths'] = df.Deaths.diff(1)
     df['DailyDeaths'][df['DailyDeaths'] < 0] = np.nan
     df['DailyRateDeaths'] = df.DailyDeaths.diff(1)
     df['DailyMeanDeaths'] = df.Deaths.diff(7) / 7
     df['DailyMeanDeaths'][df['DailyMeanDeaths'] < 0] = np.nan
-    df['DailyMeanRateDeaths'] = df.DailyMeanDeaths.diff(7) / 7
 
     df['WeeklyCases'] = df.Cases.diff(7)
     df['WeeklyCases'][df['WeeklyCases'] < 0] = np.nan
@@ -293,8 +291,8 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
         ('DailyDeaths', '#C70039', 'Deaths/Day'),
         ('DailyRateCases', '#4C33FF', 'Growth Cases/Day'),
         ('DailyRateDeaths', '#C70039', 'Growth Deaths/Day'),
-        ('DailyMeanRateCases', '#4C33FF', '7 Day Mean Growth Cases/Day'),
-        ('DailyMeanRateDeaths', '#C70039', '7 Day Mean Growth Deaths/Day'),
+        ('DailyMeanCases', '#4C33FF', '7 Day Average Cases/Day'),
+        ('DailyMeanDeaths', '#C70039', '7 Day Average Deaths/Day'),
     ))
     summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
