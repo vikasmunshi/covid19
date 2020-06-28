@@ -164,6 +164,20 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df = df[['Country', 'Date', 'Code', 'Population', 'Cases', 'Deaths']]
     df = df.set_index(['Country', 'Date'])
 
+    df['DailyCases'] = df.Cases.diff(1)
+    df['DailyCases'][df['DailyCases'] < 0] = np.nan
+    df['DailyRateCases'] = df.DailyCases.diff(1)
+    df['DailyMeanCases'] = df.Cases.diff(7) / 7
+    df['DailyMeanCases'][df['DailyMeanCases'] < 0] = np.nan
+    df['DailyMeanRateCases'] = df.DailyMeanCases.diff(7) / 7
+
+    df['DailyDeaths'] = df.Deaths.diff(1)
+    df['DailyDeaths'][df['DailyDeaths'] < 0] = np.nan
+    df['DailyRateDeaths'] = df.DailyDeaths.diff(1)
+    df['DailyMeanDeaths'] = df.Deaths.diff(7) / 7
+    df['DailyMeanDeaths'][df['DailyMeanDeaths'] < 0] = np.nan
+    df['DailyMeanRateDeaths'] = df.DailyMeanDeaths.diff(7) / 7
+
     df['WeeklyCases'] = df.Cases.diff(7)
     df['WeeklyCases'][df['WeeklyCases'] < 0] = np.nan
     df['CPM'] = 10 ** 6 * df.Cases / df.Population
@@ -273,15 +287,14 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 # Plot regional charts
 def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
     columns, colors, titles = (list(x) for x in zip(
-        ('CPM', '#4C33FF', 'Cases/Million'),
-        ('DPM', '#C70039', 'Deaths/Million'),
         ('Cases', '#4C33FF', 'Total Cases'),
-        ('DailyCPM', '#4C33FF', 'Cases/Day/Million (7 day average)'),
-        ('DailyDPM', '#C70039', 'Deaths/Day/Million (7 day average)'),
         ('Deaths', '#C70039', 'Attributed Deaths'),
-        ('DailyRateCPM', '#4C33FF', 'Growth Cases/Day/Million (7 day average)'),
-        ('DailyRateDPM', '#C70039', 'Growth Deaths/Day/Million (7 day average)'),
-        ('CFR', '#FF00FF', 'Case Fatality Rate (%)'),
+        ('DailyCases', '#4C33FF', 'Cases/Day'),
+        ('DailyDeaths', '#C70039', 'Deaths/Day'),
+        ('DailyRateCases', '#4C33FF', 'Growth Cases/Day'),
+        ('DailyRateDeaths', '#C70039', 'Growth Deaths/Day'),
+        ('DailyMeanRateCases', '#4C33FF', '7 Day Mean Growth Cases/Day'),
+        ('DailyMeanRateDeaths', '#C70039', '7 Day Mean Growth Deaths/Day'),
     ))
     summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
@@ -289,7 +302,7 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
         summary_values = [format_num(x) for x in df.loc[region].loc[last_date][summary_columns]]
         title = '<b>{}</b><BR>{} People, {} Cases, {} Deaths, {} Deaths/Million, {}% Case Fatality Rate' \
                 '<i> as on {}</i><BR><BR>'.format(region, *summary_values, last_date.strftime('%d %b %Y'))
-        return graph(figure=df.loc[region][columns].figure(theme='polar', title=title, subplots=True, shape=(3, 3),
+        return graph(figure=df.loc[region][columns].figure(theme='polar', title=title, subplots=True, shape=(4, 2),
                                                            legend=False, colors=colors, subplot_titles=titles),
                      hovermode='x')
 
