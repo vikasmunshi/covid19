@@ -294,11 +294,17 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
         ('DailyMeanCases', '#4C33FF', '7 Day Average Cases/Day'),
         ('DailyMeanDeaths', '#C70039', '7 Day Average Deaths/Day'),
     ))
-    summary_columns = ['Population', 'Cases', 'Deaths', 'DPM', 'CFR']
 
     def plot_region(region: str) -> dcc.Graph:
-        summary_values = [format_num(x) for x in df.loc[region].loc[last_date][summary_columns]]
-        title = '<b>{}</b><BR>{} People, {} Cases, {} Deaths, {} Deaths/Million, {}% Case Fatality Rate' \
+        summary_values = [format_num(int(x)) for x in
+                          df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'CPM', 'DPM', 'CFR']]]
+        title = '<b>{}</b><BR>' \
+                '<b>{}</b> People, ' \
+                '<b>{}</b> Cases, ' \
+                '<b>{}</b> Deaths, ' \
+                '<b>{}</b> Cases/Mil, ' \
+                '<b>{}</b> Deaths/Mil, ' \
+                '<b>{}%</b> Case Fatality Rate ' \
                 '<i> as on {}</i><BR><BR>'.format(region, *summary_values, last_date.strftime('%d %b %Y'))
         return graph(figure=df.loc[region][columns].figure(theme='polar', title=title, subplots=True, shape=(4, 2),
                                                            legend=False, colors=colors, subplot_titles=titles),
