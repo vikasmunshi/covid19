@@ -206,7 +206,7 @@ def graph(figure, **kwargs) -> dcc.Graph:
 def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
     df_now = df.xs(last_date, axis=0, level=1).fillna(0).reset_index()
     df_geo = df_now[~df_now.Country.isin(['World', 'European Union'])]
-    rag_scale = [(0.0, 'green'), (0.015625, 'blue'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
+    rag_scale = [(0.0, 'green'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
     color_palette = ['#FD3216', '#00FE35', '#6A76FC', '#FED4C4', '#FE00CE', '#0DF9FF', '#F6F926', '#FF9616',
                      '#479B55', '#EEA6FB', '#DC587D', '#D626FF', '#6E899C', '#00B5F7', '#B68E00', '#C9FBE5',
                      '#FF0092', '#22FFA7', '#E3EE9E', '#86CE00', '#BC7196', '#7E7DCD', '#FC6955', '#E48F72']
@@ -247,8 +247,8 @@ def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) ->
 
     return {
         'Scatter': dhc.Div([chart for chart in [
-            plot_scatter(x='CPM', y='DPM', label='Cases per Million vs Deaths per Million', size='Deaths',
-                         drop=['World'], cutoff=100), ]]),
+            plot_scatter(x='CPM', y='DPM', size='Deaths', color='CFR', drop=['World', ], cutoff=1000,
+                         label='Cases per Million vs Deaths per Million', ), ]]),
         'Current Cases': dhc.Div([chart for chart in [
             plot_current(col='Cases', label='Cases', drop=['World'], theme='polar', color=['#4C33FF']),
             plot_current(col='CPM', label='Cases Per Million', drop=[], theme='polar', color=['#4C33FF']), ]]),
