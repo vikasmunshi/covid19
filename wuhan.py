@@ -289,10 +289,10 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
         ('Deaths', '#C70039', 'Attributed Deaths'),
         ('DailyCases', '#4C33FF', 'Cases/Day'),
         ('DailyDeaths', '#C70039', 'Deaths/Day'),
-        ('DailyRateCases', '#4C33FF', 'Growth Cases/Day'),
-        ('DailyRateDeaths', '#C70039', 'Growth Deaths/Day'),
         ('DailyMeanCases', '#4C33FF', '7 Day Average Cases/Day'),
         ('DailyMeanDeaths', '#C70039', '7 Day Average Deaths/Day'),
+        ('DailyRateCases', '#4C33FF', 'Growth Cases/Day'),
+        ('DailyRateDeaths', '#C70039', 'Growth Deaths/Day'),
     ))
 
     def plot_region(region: str) -> dcc.Graph:
