@@ -32,6 +32,8 @@ if not os.path.exists(auth_file):
 with open(auth_file) as in_file:
     auth_tokens = in_file.readlines()[42:69]
 code_link = '/code'
+ld_link = '/logs'
+ld_file = None
 status_link = '/status'
 kill_link = '/kill/' + auth_tokens[0]
 reload_data_link = '/reload/' + auth_tokens[-1]
@@ -85,6 +87,7 @@ def create_layout(keys: list = None, shown_keys: list = None, ds: str = '', ) ->
     page_title = '{} {}'.format(app_title, ds)
     report_date = dt.datetime.now().strftime('%H:%M %d-%b-%Y')
     link_style = {'text-decoration': 'none'}
+    log_link = dhc.A(u'\u2317 ', title='Logs', href=ld_link, target='_blank', style=link_style) if ld_file else ''
     return {
         'report_date': report_date,
         'Loading...': dhc.Div('Loading ...'),
@@ -92,7 +95,7 @@ def create_layout(keys: list = None, shown_keys: list = None, ds: str = '', ) ->
             dhc.H3([dhc.A(u'\u2388 ', href='/', style=link_style, title='Refresh'), page_title]),
             dcc.Dropdown(id='chart', options=[{'label': k, 'value': k} for k in keys], value=shown_keys, multi=True),
             dhc.Div(id='page-content', style={'min-height': '600px'}),
-            dhc.I([dhc.A(u'\u2317 ', title='Code', href=code_link, target='_blank', style=link_style),
+            dhc.I([log_link, dhc.A(u'\u2318 ', title='Code', href=code_link, target='_blank', style=link_style),
                    'created: {}'.format(report_date), ]), ]), }
 
 
@@ -203,7 +206,7 @@ def graph(figure, **kwargs) -> dcc.Graph:
 
 
 # Plot overview with country comparisons
-def plot_comparision(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
+def plot_comparison(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {str, dhc.Div}:
     df_now = df.xs(last_date, axis=0, level=1).fillna(0).reset_index()
     df_geo = df_now[~df_now.Country.isin(['World', 'European Union'])]
     rag_scale = [(0.0, 'green'), (0.0625, 'yellow'), (0.25, 'orange'), (1.0, 'red')]
@@ -337,9 +340,9 @@ def update_cache() -> bool:
             last_date = max(df.index.get_level_values(level=1))
             regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
             short_list = regions[0:32] + ['Taiwan']
-            cache.update(comparision_charts := plot_comparision(df, short_list, last_date))
+            cache.update(comparison_charts := plot_comparison(df, short_list, last_date))
             cache.update(plot_regions(df, regions, last_date))
-            cache.update(create_layout(keys=list(sorted(comparision_charts.keys())) + regions, shown_keys=short_list,
+            cache.update(create_layout(keys=list(sorted(comparison_charts.keys())) + regions, shown_keys=short_list,
                                        ds=last_date.strftime('%d %b %Y')))
             log_message('Cache Updated')
         return True
@@ -376,12 +379,23 @@ def status():
         else 'serving {} items cached at {}'.format(len(cache), cache['report_date'])
 
 
+def text_box(lines: [str, ...]) -> str:
+    rows = len(lines)
+    cols = max(len(line) for line in lines)
+    return '{0}{1} rows={4} cols={5} {2}{3}{0}/{1}{2}'.format('<', 'textarea', '>', '\n'.join(lines), rows, cols)
+
+
 @server.route(code_link)
 def code():
-    src = inspect.getsource(sys.modules[__name__]).splitlines()
-    rows = len(src)
-    cols = max(len(line) for line in src)
-    return '{0}{1} rows={4} cols={5} {2}{3}{0}/{1}{2}'.format('<', 'textarea', '>', '\n'.join(src), rows, cols)
+    return text_box(lines=inspect.getsource(sys.modules[__name__]).splitlines())
+
+
+@server.route(ld_link)
+def logs():
+    if ld_file:
+        with open(ld_file) as infile:
+            return text_box([line.strip() for line in infile.readlines()])
+    return ''
 
 
 @server.route(reload_data_link)
@@ -425,6 +439,8 @@ if __name__ == '__main__':
             log_message('http://{}:{} is down'.format(host, port))
             exit(1)
     else:
+        ld_file = os.path.abspath(__file__)[:-3] + ('-d.log' if args.dev else '.log')
+        cache = create_layout()
         if args.dev:
             __import__('requests_cache').install_cache('cache', expire_after=12 * 3600)
         __import__('atexit').register(log_message, 'http://{}:{} down'.format(host, port))
