@@ -168,13 +168,13 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df['DailyCases'][df['DailyCases'] < 0] = np.nan
     df['DailyMeanCases'] = df.Cases.diff(7) / 7
     df['DailyMeanCases'][df['DailyMeanCases'] < 0] = np.nan
-    df['DailyRateCases'] = df.DailyMeanCases.diff(1)
+    df['DailyRateCases'] = df.DailyMeanCases.diff(7) / 7
 
     df['DailyDeaths'] = df.Deaths.diff(1)
     df['DailyDeaths'][df['DailyDeaths'] < 0] = np.nan
     df['DailyMeanDeaths'] = df.Deaths.diff(7) / 7
     df['DailyMeanDeaths'][df['DailyMeanDeaths'] < 0] = np.nan
-    df['DailyRateDeaths'] = df.DailyMeanDeaths.diff(1)
+    df['DailyRateDeaths'] = df.DailyMeanDeaths.diff(7) / 7
 
     df['WeeklyCases'] = df.Cases.diff(7)
     df['WeeklyCases'][df['WeeklyCases'] < 0] = np.nan
