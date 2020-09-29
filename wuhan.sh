@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck source=~
+. ~/venv/bin/activate
 cd "$(dirname "$0")" || exit
 
 for arg; do
