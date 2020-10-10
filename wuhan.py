@@ -27,8 +27,8 @@ __all__ = ['app', 'server', 'client']
 
 auth_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth.txt')
 if not os.path.exists(auth_file):
-    with open(auth_file, 'w') as o_file:
-        o_file.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(128))) for n in range(99)]))
+    with open(auth_file, 'w') as o_f:
+        o_f.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(256))) for n in range(256)]))
 with open(auth_file) as in_file:
     auth_tokens = in_file.readlines()[42:69]
 code_link = '/code'
@@ -250,7 +250,7 @@ def plot_comparison(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> 
 
     return {
         'Scatter': dhc.Div([chart for chart in [
-            plot_scatter(x='CPM', y='DPM', size='Deaths', color='CFR', drop=['World', ], cutoff=1000,
+            plot_scatter(x='CPM', y='DPM', size='DPM', color='CFR', cutoff=1000,
                          label='Cases per Million vs Deaths per Million', ), ]]),
         'Current Cases': dhc.Div([chart for chart in [
             plot_current(col='Cases', label='Cases', drop=['World'], theme='polar', color=['#4C33FF']),
