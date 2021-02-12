@@ -172,12 +172,14 @@ def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
     df['DailyMeanCases'] = df.Cases.diff(7) / 7
     df['DailyMeanCases'][df['DailyMeanCases'] < 0] = np.nan
     df['DailyRateCases'] = df.DailyMeanCases.diff(7) / 7
+    df['DailyMeanCases'] = df['DailyMeanCases'].round(0)
 
     df['DailyDeaths'] = df.Deaths.diff(1)
     df['DailyDeaths'][df['DailyDeaths'] < 0] = np.nan
     df['DailyMeanDeaths'] = df.Deaths.diff(7) / 7
     df['DailyMeanDeaths'][df['DailyMeanDeaths'] < 0] = np.nan
     df['DailyRateDeaths'] = df.DailyMeanDeaths.diff(7) / 7
+    df['DailyMeanDeaths'] = df['DailyMeanDeaths'].round(0)
 
     df['WeeklyCases'] = df.Cases.diff(7)
     df['WeeklyCases'][df['WeeklyCases'] < 0] = np.nan
@@ -387,15 +389,17 @@ def text_box(lines: [str, ...]) -> str:
 
 @server.route(code_link)
 def code():
-    return text_box(lines=inspect.getsource(sys.modules[__name__]).splitlines())
+    page = '<html><head></head><body>{}</body></html>'
+    return page.format(text_box(lines=inspect.getsource(sys.modules[__name__]).splitlines()))
 
 
 @server.route(ld_link)
 def logs():
+    page = '<html><head><meta http-equiv="refresh" content="10"></head><body>{}</body></html>'
     if ld_file:
         with open(ld_file) as infile:
-            return text_box([line.strip() for line in infile.readlines()])
-    return ''
+            return page.format(text_box([line.strip() for line in infile.readlines()]))
+    return page.format('')
 
 
 @server.route(reload_data_link)
