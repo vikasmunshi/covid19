@@ -25,7 +25,7 @@ import requests
 
 __all__ = ['app', 'server', 'client']
 
-auth_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth.txt')
+auth_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth_key')
 if not os.path.exists(auth_file):
     with open(auth_file, 'w') as o_f:
         o_f.write('\n'.join([(''.join(random.choice(string.ascii_letters) for _ in range(256))) for n in range(256)]))
