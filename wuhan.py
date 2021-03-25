@@ -117,7 +117,13 @@ def log_message(*msg: str) -> None:
 
 # retrieve data from URL and return Pandas DataFrame
 def data_frame_from_url(url: str) -> pd.DataFrame:
-    return pd.read_csv(io.StringIO(requests.get(url).content.decode()))
+    try:
+        return pd.read_csv(io.StringIO(requests.get(url).content.decode()))
+    except Exception as e:
+        log_message('error retrieving url {}'.format(url))
+        raise e
+    finally:
+        log_message('retrieved url {}'.format(url))
 
 
 # Population Data
