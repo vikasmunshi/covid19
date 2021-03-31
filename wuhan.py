@@ -161,9 +161,8 @@ def get_covid19_data(metric: str) -> pd.DataFrame:
 
 
 # Transform Covid-19 Data
-def transform_covid19_data(population: pd.DataFrame) -> pd.DataFrame:
-    df = get_covid19_data('cases')
-    df = pd.merge(df, get_covid19_data('deaths'), on=['Country', 'Date'], how='inner')
+def transform_covid19_data(population: pd.DataFrame, cases: pd.DataFrame, deaths: pd.DataFrame) -> pd.DataFrame:
+    df = pd.merge(cases, deaths, on=['Country', 'Date'], how='inner')
     eu = df[df.Country.isin(EU)].groupby('Date').sum().reset_index('Date').sort_values('Date')
     eu['Country'] = 'European Union'
     world = df.groupby('Date').sum().reset_index('Date').sort_values('Date')
@@ -309,10 +308,10 @@ def plot_regions(df: pd.DataFrame, regions: list, last_date: dt.datetime) -> {st
     def plot_region(region: str) -> dcc.Graph:
         summary_values = [format_num(int(x)) for x in
                           df.loc[region].loc[last_date][['Population', 'Cases', 'Deaths', 'CPM', 'DPM', 'CFR']]]
-        title = '<b>{}</b><BR>' \
+        title = '<b>{}</b>: ' \
                 '<b>{}</b> People, ' \
                 '<b>{}</b> Cases, ' \
-                '<b>{}</b> Deaths, ' \
+                '<b>{}</b> Deaths,<BR> ' \
                 '<b>{}</b> Cases/Mil, ' \
                 '<b>{}</b> Deaths/Mil, ' \
                 '<b>{}%</b> Case Fatality Rate ' \
@@ -344,7 +343,7 @@ def update_cache() -> bool:
         with cache_update_lock:
             log_message('Updating Cache')
             cache['population'] = population = cache.get('population', get_population())
-            df = transform_covid19_data(population)
+            df = transform_covid19_data(population, cases=get_covid19_data('cases'), deaths=get_covid19_data('deaths'))
             last_date = max(df.index.get_level_values(level=1))
             regions = list(df.xs(last_date, axis=0, level=1).sort_values(by='Deaths', ascending=False).index)
             short_list = regions[0:32]
